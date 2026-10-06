@@ -271,10 +271,15 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 				{ ch: lastCh, line: lastLine }
 			);
 		} else {
+			// If the section we are moving to is after the current cursor position we have to account for the current selection being deleted
+			let line: number = this.headings[heading.index + 1]!.line
+			if (line > this.editor.getCursor().line) {
+				line -= 1
+			}
 			this.editor.replaceRange(
 				currentSelection + '\n',
-				{ ch: 0, line: this.headings[heading.index + 1]!.line },
-				{ ch: 0, line: this.headings[heading.index + 1]!.line }
+				{ ch: 0, line: line },
+				{ ch: 0, line: line }
 			);
 		}
 	}
