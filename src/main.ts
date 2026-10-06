@@ -214,19 +214,20 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 	// Have to remove the heading that the selection is currently in
 	// And have to account for it being the last heading
 	getItems(): Heading[] {
+		let headings: Heading[] = [...this.headings];
 		const cursor: EditorPosition = this.editor.getCursor()
-		if (cursor.line > this.headings[this.headings.length - 1]!.line) {
-			this.headings.remove(this.headings[this.headings.length - 1]!);
-			return this.headings;
+		if (cursor.line > headings[headings.length - 1]!.line) {
+			this.headings.remove(headings[headings.length - 1]!);
+			return headings;
 		}
 		for (let i = 0; i < this.headings.length; i++) {
-			const heading: Heading = this.headings[i]!;
-			if (cursor.line >= heading.line && cursor.line < this.headings[i + 1]!.line) {
-				this.headings.remove(heading);
+			const heading: Heading = headings[i]!;
+			if (cursor.line >= heading.line && cursor.line < headings[i + 1]!.line) {
+				headings.remove(heading);
 				break;
 			}
 		}
-		return this.headings;
+		return headings;
 	}
 
 	getItemText(heading: Heading): string {
@@ -261,7 +262,7 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 		// Add the selection to the target heading
 		let index: number = heading.index;
 		// If we are moving to the final heading, append the selection to the end of the file
-		if (index + 1 > this.headings.length) {
+		if (index + 1 >= this.headings.length) {
 			const lastLine: number = this.editor.lastLine();
 			const lastCh: number = this.editor.getLine(lastLine).length;
 			this.editor.replaceRange(
