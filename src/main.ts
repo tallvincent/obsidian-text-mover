@@ -10,13 +10,14 @@ import {
 	App,
 	FuzzyMatch,
 	renderResults,
-	EditorPosition,
+	EditorPosition
 } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	TextMoverPluginSettings,
 	TextMoverSettingTab
 } from './settings';
+import { DailyNoteSettings } from './types';
 
 interface Heading {
 	index: number,
@@ -25,6 +26,8 @@ interface Heading {
 	rawValue: string;
 	line: number;
 }
+
+const DEFAULT_DAILY_NOTE_FORMAT = "YYYY-MM-DD";
 
 export default class TextMoverPlugin extends Plugin {
 	settings!: TextMoverPluginSettings;
@@ -74,6 +77,19 @@ export default class TextMoverPlugin extends Plugin {
 			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
 				this.validateSelection(editor);
 				new FileSelectionModal(this.app, editor).open();
+			},
+		});
+		// NOTE: command that takes the currently selected text or line and moves it to the next daily note
+		this.addCommand({
+			id: 'move-text-to-next-daily-note',
+			name: 'Move text to next daily note',
+			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
+				this.validateSelection(editor);
+				if (!this.appHasDailyNotesPluginLoaded()) {
+					new Notice('Please enable the daily notes plugin');
+					return;
+				}
+				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings()
 			},
 		});
 		// This adds an editor command that can perform some operation on the current editor instance
@@ -155,6 +171,28 @@ export default class TextMoverPlugin extends Plugin {
 		editor.setSelection({ ch: 0, line: currentLineNumber }, { ch: currentLine.length, line: currentLineNumber })
 		return;
 		// FIXME: what about when the editor position is somewhere weird like in frontmatter?
+	}
+
+	appHasDailyNotesPluginLoaded(): boolean {
+		const dailyNotesPlugin = this.app.internalPlugins.plugins["daily-notes"];
+		if (dailyNotesPlugin && dailyNotesPlugin.enabled) {
+			return true;
+		}
+		return false;
+	}
+
+	getDailyNotesPluginSettings(): DailyNoteSettings {
+		const { format, folder, template } =
+			this.app.internalPlugins.getPluginById("daily-notes")?.instance?.options || {};
+		return {
+			format: format || DEFAULT_DAILY_NOTE_FORMAT,
+			folder: this.validateString(folder).trim(),
+			template: this.validateString(template).trim(),
+		};
+	}
+
+	validateString(value: unknown): string {
+		return typeof value === "string" ? value : "";
 	}
 }
 
