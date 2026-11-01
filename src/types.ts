@@ -10,3 +10,12 @@ export interface DailyNoteSettings {
 	format?: string;
 	template?: string;
 }
+
+export interface Heading {
+	index: number,
+	value: string;
+	level: number;
+	rawValue: string;
+	line: number;
+}
+

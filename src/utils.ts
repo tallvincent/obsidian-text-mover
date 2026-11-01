@@ -1,4 +1,5 @@
-import { Editor, EditorSelection } from "obsidian";
+import { Editor, EditorSelection, TFile, Vault } from "obsidian";
+import { Heading } from "./types";
 
 export function removeSelectionFromEditor(editor: Editor) {
 	const editorSelections: EditorSelection[] = editor.listSelections();
@@ -17,4 +18,24 @@ export function removeSelectionFromEditor(editor: Editor) {
 			editor.replaceRange('', editorSelection.head, editorSelection.anchor);
 		}
 	}
+}
+
+export async function getFileHeadings(file: TFile, vault: Vault): Promise<Heading[]> {
+	let headings: Heading[] = [];
+	const regex: RegExp = /^(#{1,6})\s(.*)/gm;
+	const content: string = await vault.cachedRead(file);
+	const matches: RegExpStringIterator<RegExpExecArray> = content.matchAll(regex);
+	const lines: string[] = content.split('\n');
+	let i = 0;
+	for (const match of matches) {
+		headings.push({
+			index: i,
+			rawValue: match[0],
+			level: match[1]!.length,
+			value: match[2]!,
+			line: lines.indexOf(match[0])
+		});
+		i += 1;
+	}
+	return headings;
 }

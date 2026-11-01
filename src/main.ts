@@ -20,16 +20,8 @@ import {
 	TextMoverPluginSettings,
 	TextMoverSettingTab
 } from './settings';
-import { DailyNoteSettings } from './types';
-import { removeSelectionFromEditor } from './selections';
-
-interface Heading {
-	index: number,
-	value: string;
-	level: number;
-	rawValue: string;
-	line: number;
-}
+import { DailyNoteSettings, Heading } from './types';
+import { getFileHeadings, removeSelectionFromEditor } from './utils';
 
 const DEFAULT_DAILY_NOTE_FORMAT = "YYYY-MM-DD";
 
@@ -45,28 +37,14 @@ export default class TextMoverPlugin extends Plugin {
 			new Notice('This is a notice!');
 		});
 
-		// NOTE: command that takes the currently selected text or line and opens a modal to move it to another section within the document
+		// NOTE: command that takes the currently selected text or line 
+		// and opens a modal to move it to another section within the document
 		this.addCommand({
 			id: 'move-text-within-document',
 			name: 'Move text within current document',
 			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
 				this.validateSelection(editor);
-				let headings: Heading[] = [];
-				const regex: RegExp = /^(#{1,6})\s(.*)/gm;
-				const content: string = await this.app.vault.cachedRead(ctx.file!);
-				const matches: RegExpStringIterator<RegExpExecArray> = content.matchAll(regex);
-				const lines: string[] = content.split('\n');
-				let i = 0;
-				for (const match of matches) {
-					headings.push({
-						index: i,
-						rawValue: match[0],
-						level: match[1]!.length,
-						value: match[2]!,
-						line: lines.indexOf(match[0])
-					});
-					i += 1;
-				}
+				const headings: Heading[] = await getFileHeadings(ctx.file!, this.app.vault)
 				if (headings.length === 0) {
 					new Notice('No headings found in current document');
 					return;
@@ -74,7 +52,8 @@ export default class TextMoverPlugin extends Plugin {
 				new HeadingSelectionModal(this.app, editor, headings).open();
 			},
 		});
-		// NOTE: command that takes the currently selected text or line and opens a modal to move it to another document
+		// NOTE: command that takes the currently selected text or line 
+		// and opens a modal to move it to another document
 		this.addCommand({
 			id: 'move-text-to-another-document',
 			name: 'Move text to another document',
@@ -83,7 +62,8 @@ export default class TextMoverPlugin extends Plugin {
 				new FileSelectionModal(this.app, editor).open();
 			},
 		});
-		// NOTE: command that takes the currently selected text or line and moves it to the next daily note
+		// NOTE: command that takes the currently selected text or line 
+		// and moves it to the next daily note
 		this.addCommand({
 			id: 'move-text-to-next-daily-note',
 			name: 'Move text to next daily note',
@@ -277,11 +257,11 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 		let headings: Heading[] = [...this.headings];
 		const cursor: EditorPosition = this.editor.getCursor()
 		if (cursor.line > headings[headings.length - 1]!.line) {
-			this.headings.remove(headings[headings.length - 1]!);
+			this.headings.remove(headings[headings.length - 1]);
 			return headings;
 		}
 		for (let i = 0; i < this.headings.length; i++) {
-			const heading: Heading = headings[i]!;
+			const heading: Heading = headings[i];
 			if (cursor.line >= heading.line && cursor.line < headings[i + 1]!.line) {
 				headings.remove(heading);
 				break;
