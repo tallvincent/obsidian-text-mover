@@ -21,6 +21,7 @@ import {
 	TextMoverSettingTab
 } from './settings';
 import { DailyNoteSettings } from './types';
+import { removeSelectionFromEditor } from './selections';
 
 interface Heading {
 	index: number,
@@ -123,6 +124,9 @@ export default class TextMoverPlugin extends Plugin {
 				// get file headings
 
 				// open selector for headings with each heading duplicated for append or prepend
+
+				// remove the selection from the current note
+				removeSelectionFromEditor(editor)
 			},
 		});
 		// This adds an editor command that can perform some operation on the current editor instance
@@ -246,8 +250,6 @@ class FileSelectionModal extends FuzzySuggestModal<TFile> {
 	}
 
 	onChooseItem(file: TFile, _evt: MouseEvent | KeyboardEvent): void {
-		const editorSelections: EditorSelection[] = this.editor.listSelections();
-		const editorSelection: EditorSelection = editorSelections.at(0)!;
 		const currentSelection: string = this.editor.getSelection()
 		// Add the selection to the target file
 		void (async () => {
@@ -255,20 +257,7 @@ class FileSelectionModal extends FuzzySuggestModal<TFile> {
 				return data + '\n' + currentSelection;
 			})
 		})();
-		// Check if we need to remove the entire line up to the start of the next line
-		const selectionIsEntireLine: boolean = this.editor.getLine(editorSelection.anchor.line) == this.editor.getSelection()
-		// Remove the selection from the current file
-		if (selectionIsEntireLine) {
-			// NOTE: this removes the entire line even if it's the last line in the document - in that case it just leaves an empty line
-			this.editor.replaceRange('', editorSelection.anchor, { ch: 0, line: editorSelection.anchor.line + 1 });
-		} else {
-			// NOTE: need to make sure that `from` is before `to`
-			if (editorSelection.anchor.ch < editorSelection.head.ch) {
-				this.editor.replaceRange('', editorSelection.anchor, editorSelection.head);
-			} else {
-				this.editor.replaceRange('', editorSelection.head, editorSelection.anchor);
-			}
-		}
+		removeSelectionFromEditor(this.editor)
 	}
 }
 
@@ -313,23 +302,8 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 	}
 
 	onChooseItem(heading: Heading, _evt: MouseEvent | KeyboardEvent): void {
-		const editorSelections: EditorSelection[] = this.editor.listSelections();
-		const editorSelection: EditorSelection = editorSelections.at(0)!;
 		const currentSelection: string = this.editor.getSelection()
-		// Check if we need to remove the entire line up to the start of the next line
-		const selectionIsEntireLine: boolean = this.editor.getLine(editorSelection.anchor.line) == this.editor.getSelection()
-		// Remove the selection from the current file
-		if (selectionIsEntireLine) {
-			// NOTE: this removes the entire line even if it's the last line in the document - it just leaves an empty line in that case
-			this.editor.replaceRange('', editorSelection.anchor, { ch: 0, line: editorSelection.anchor.line + 1 });
-		} else {
-			// NOTE: need to make sure that `from` is before `to`
-			if (editorSelection.anchor.ch < editorSelection.head.ch) {
-				this.editor.replaceRange('', editorSelection.anchor, editorSelection.head);
-			} else {
-				this.editor.replaceRange('', editorSelection.head, editorSelection.anchor);
-			}
-		}
+		removeSelectionFromEditor(this.editor)
 		// Add the selection to the target heading
 		let index: number = heading.index;
 		// If we are moving to the final heading, append the selection to the end of the file
