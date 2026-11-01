@@ -1,3 +1,4 @@
+/* eslint-disable obsidianmd/rule-custom-message */
 import {
 	Editor,
 	MarkdownView,
@@ -10,7 +11,9 @@ import {
 	App,
 	FuzzyMatch,
 	renderResults,
-	EditorPosition
+	EditorPosition,
+	moment,
+	normalizePath
 } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
@@ -90,6 +93,36 @@ export default class TextMoverPlugin extends Plugin {
 					return;
 				}
 				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings()
+				console.log(settings)
+				const path: string = normalizePath(settings.folder + '/' + moment(Date.now()).format(settings.format) + '.md')
+				console.log(path)
+				const file: TFile | null = this.app.vault.getFileByPath(path)
+				console.log(file)
+				if (!file) {
+					console.log("couldn't find", path)
+					let data: string = ''
+					// get the content of the settings template
+					if (settings.template) {
+						console.log("adding template content")
+						const templatePath: string = normalizePath(settings.template)
+						const templateFile: TFile | null = this.app.vault.getFileByPath(templatePath)
+						if (templateFile) {
+							data = await this.app.vault.read(templateFile)
+						}
+					}
+					// create the file
+					data += "\n" + editor.getSelection()
+					console.log("appending to file", path, data)
+					let x = await this.app.vault.create(path, data)
+					console.log('file:', x)
+				} else {
+					const data: string = editor.getSelection()
+					console.log("appending to file", file.name, data)
+					await this.app.vault.append(file, "\n" + data)
+				}
+				// get file headings
+
+				// open selector for headings with each heading duplicated for append or prepend
 			},
 		});
 		// This adds an editor command that can perform some operation on the current editor instance
