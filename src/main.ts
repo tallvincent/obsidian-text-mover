@@ -94,7 +94,7 @@ export default class TextMoverPlugin extends Plugin {
 				}
 				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings()
 				console.log(settings)
-				const path: string = normalizePath(settings.folder + '/' + moment(Date.now()).format(settings.format) + '.md')
+				const path: string = normalizePath(settings.folder + '/' + moment(Date.now()).add(1, 'd').format(settings.format) + '.md')
 				console.log(path)
 				const file: TFile | null = this.app.vault.getFileByPath(path)
 				console.log(file)
