@@ -44,12 +44,58 @@ export default class TextMoverPlugin extends Plugin {
 			name: 'Move text within current document',
 			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
 				this.validateSelection(editor);
-				const headings: Heading[] = await getFileHeadings(ctx.file!, this.app.vault)
+				const fileContent: string = await this.app.vault.cachedRead(ctx.file!)
+				let headings: Heading[] = getFileHeadings(fileContent)
 				if (headings.length === 0) {
 					new Notice('No headings found in current document');
 					return;
 				}
-				new HeadingSelectionModal(this.app, editor, headings).open();
+				const heading = await new HeadingSelectionModal(this.app, headings).pick();
+				console.log(heading)
+
+				if (!heading) {
+					return
+				}
+
+				// Have to remove the heading that the selection is currently in
+				// And have to account for it being the last heading
+				const cursor: EditorPosition = editor.getCursor()
+				if (cursor.line > headings[headings.length - 1]!.line) {
+					headings.remove(headings[headings.length - 1]);
+				}
+				for (let i = 0; i < headings.length; i++) {
+					const heading: Heading = headings[i];
+					if (cursor.line >= heading.line && cursor.line < headings[i + 1]!.line) {
+						headings.remove(heading);
+						break;
+					}
+				}
+
+				const currentSelection: string = editor.getSelection()
+				removeSelectionFromEditor(editor)
+				// Add the selection to the target heading
+				let index: number = heading.index;
+				// If we are moving to the final heading, append the selection to the end of the file
+				if (index + 1 >= headings.length) {
+					const lastLine: number = editor.lastLine();
+					const lastCh: number = editor.getLine(lastLine).length;
+					editor.replaceRange(
+						'\n' + currentSelection,
+						{ ch: lastCh, line: lastLine },
+						{ ch: lastCh, line: lastLine }
+					);
+				} else {
+					// If the section we are moving to is after the current cursor position we have to account for the current selection being deleted
+					let line: number = headings[heading.index + 1]!.line
+					if (line > editor.getCursor().line) {
+						line -= 1
+					}
+					editor.replaceRange(
+						currentSelection + '\n',
+						{ ch: 0, line: line },
+						{ ch: 0, line: line }
+					);
+				}
 			},
 		});
 		// NOTE: command that takes the currently selected text or line 
@@ -59,7 +105,20 @@ export default class TextMoverPlugin extends Plugin {
 			name: 'Move text to another document',
 			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
 				this.validateSelection(editor);
-				new FileSelectionModal(this.app, editor).open();
+				const file = await new FileSelectionModal(this.app).pick();
+
+				if (!file) {
+					return
+				}
+
+				const currentSelection: string = editor.getSelection()
+				// Add the selection to the target file
+				void (async () => {
+					await this.app.vault.process(file, (data) => {
+						return data + '\n' + currentSelection;
+					})
+				})();
+				removeSelectionFromEditor(editor)
 			},
 		});
 		// NOTE: command that takes the currently selected text or line 
@@ -67,7 +126,7 @@ export default class TextMoverPlugin extends Plugin {
 		this.addCommand({
 			id: 'move-text-to-next-daily-note',
 			name: 'Move text to next daily note',
-			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
+			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
 				this.validateSelection(editor);
 				if (!this.appHasDailyNotesPluginLoaded()) {
 					new Notice('Please enable the daily notes plugin');
@@ -77,36 +136,34 @@ export default class TextMoverPlugin extends Plugin {
 				console.log(settings)
 				const path: string = normalizePath(settings.folder + '/' + moment(Date.now()).add(1, 'd').format(settings.format) + '.md')
 				console.log(path)
-				const file: TFile | null = this.app.vault.getFileByPath(path)
+				let file: TFile | null = this.app.vault.getFileByPath(path)
 				console.log(file)
 				if (!file) {
+					let newFileData: string = ''
 					console.log("couldn't find", path)
-					let data: string = ''
 					// get the content of the settings template
 					if (settings.template) {
 						console.log("adding template content")
 						const templatePath: string = normalizePath(settings.template)
 						const templateFile: TFile | null = this.app.vault.getFileByPath(templatePath)
 						if (templateFile) {
-							data = await this.app.vault.read(templateFile)
+							newFileData = await this.app.vault.read(templateFile)
 						}
 					}
-					// create the file
-					data += "\n" + editor.getSelection()
-					console.log("appending to file", path, data)
-					let x = await this.app.vault.create(path, data)
-					console.log('file:', x)
-				} else {
-					const data: string = editor.getSelection()
-					console.log("appending to file", file.name, data)
-					await this.app.vault.append(file, "\n" + data)
+					file = await this.app.vault.create(path, newFileData)
 				}
 				// get file headings
-
-				// open selector for headings with each heading duplicated for append or prepend
+				const fileContent: string = await this.app.vault.cachedRead(file)
+				const headings: Heading[] = getFileHeadings(fileContent)
+				if (headings.length == 0) {
+					await this.app.vault.append(file, editor.getSelection())
+				} else {
+					// open selector for headings with each heading duplicated for append or prepend
+					console.log(headings)
+				}
 
 				// remove the selection from the current note
-				removeSelectionFromEditor(editor)
+				// removeSelectionFromEditor(editor)
 			},
 		});
 		// This adds an editor command that can perform some operation on the current editor instance
@@ -214,11 +271,13 @@ export default class TextMoverPlugin extends Plugin {
 }
 
 class FileSelectionModal extends FuzzySuggestModal<TFile> {
-	private editor: Editor;
+	private finish?: (file: TFile | null) => void;
 
-	constructor(app: App, editor: Editor) {
-		super(app);
-		this.editor = editor;
+	pick(): Promise<TFile | null> {
+		return new Promise((resolve) => {
+			this.finish = resolve
+			this.open()
+		})
 	}
 
 	getItems(): TFile[] {
@@ -230,44 +289,28 @@ class FileSelectionModal extends FuzzySuggestModal<TFile> {
 	}
 
 	onChooseItem(file: TFile, _evt: MouseEvent | KeyboardEvent): void {
-		const currentSelection: string = this.editor.getSelection()
-		// Add the selection to the target file
-		void (async () => {
-			await this.app.vault.process(file, (data) => {
-				return data + '\n' + currentSelection;
-			})
-		})();
-		removeSelectionFromEditor(this.editor)
+		this.finish?.(file)
 	}
 }
 
 class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
-	private editor: Editor;
 	private headings: Heading[];
+	private finish?: (heading: Heading | null) => void;
 
-	constructor(app: App, editor: Editor, headings: Heading[]) {
+	constructor(app: App, headings: Heading[]) {
 		super(app);
-		this.editor = editor;
 		this.headings = headings;
 	}
 
-	// Have to remove the heading that the selection is currently in
-	// And have to account for it being the last heading
+	pick(): Promise<Heading | null> {
+		return new Promise((resolve) => {
+			this.finish = resolve
+			this.open()
+		})
+	}
+
 	getItems(): Heading[] {
-		let headings: Heading[] = [...this.headings];
-		const cursor: EditorPosition = this.editor.getCursor()
-		if (cursor.line > headings[headings.length - 1]!.line) {
-			this.headings.remove(headings[headings.length - 1]);
-			return headings;
-		}
-		for (let i = 0; i < this.headings.length; i++) {
-			const heading: Heading = headings[i];
-			if (cursor.line >= heading.line && cursor.line < headings[i + 1]!.line) {
-				headings.remove(heading);
-				break;
-			}
-		}
-		return headings;
+		return this.headings;
 	}
 
 	getItemText(heading: Heading): string {
@@ -282,30 +325,15 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 	}
 
 	onChooseItem(heading: Heading, _evt: MouseEvent | KeyboardEvent): void {
-		const currentSelection: string = this.editor.getSelection()
-		removeSelectionFromEditor(this.editor)
-		// Add the selection to the target heading
-		let index: number = heading.index;
-		// If we are moving to the final heading, append the selection to the end of the file
-		if (index + 1 >= this.headings.length) {
-			const lastLine: number = this.editor.lastLine();
-			const lastCh: number = this.editor.getLine(lastLine).length;
-			this.editor.replaceRange(
-				'\n' + currentSelection,
-				{ ch: lastCh, line: lastLine },
-				{ ch: lastCh, line: lastLine }
-			);
-		} else {
-			// If the section we are moving to is after the current cursor position we have to account for the current selection being deleted
-			let line: number = this.headings[heading.index + 1]!.line
-			if (line > this.editor.getCursor().line) {
-				line -= 1
-			}
-			this.editor.replaceRange(
-				currentSelection + '\n',
-				{ ch: 0, line: line },
-				{ ch: 0, line: line }
-			);
-		}
+		this.finish?.(heading)
+	}
+
+	onClose(): void {
+		// FuzzySuggestModal may close before calling onChooseItem. Defer the
+		// dismissal result so a same-turn selection can resolve with its heading.
+		void Promise.resolve().then(() => {
+			this.finish?.(null);
+			this.finish = undefined;
+		});
 	}
 }
