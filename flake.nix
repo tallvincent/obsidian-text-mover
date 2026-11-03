@@ -21,7 +21,19 @@
         in
         {
           default = pkgs.mkShell {
-            packages = [ pkgs.nodejs_22 ];
+            packages = with pkgs; [
+              # JavaScript / TypeScript development
+              nodejs_22
+              typescript-language-server
+              vscode-langservers-extracted
+              eslint
+              prettier
+
+              # Nix development
+              nil
+              statix
+              nixfmt
+            ];
           };
         });
     };
