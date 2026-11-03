@@ -31,12 +31,6 @@ export default class TextMoverPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-
 		// NOTE: command that takes the currently selected text or line 
 		// and opens a modal to move it to another section within the document
 		this.addCommand({
@@ -164,17 +158,6 @@ export default class TextMoverPlugin extends Plugin {
 
 				// remove the selection from the current note
 				// removeSelectionFromEditor(editor)
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (
-				editor: Editor,
-				_ctx: MarkdownView | MarkdownFileInfo,
-			) => {
-				editor.replaceSelection('Sample editor command');
 			},
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
