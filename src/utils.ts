@@ -20,12 +20,11 @@ export function removeSelectionFromEditor(editor: Editor) {
 	}
 }
 
-export async function getFileHeadings(file: TFile, vault: Vault): Promise<Heading[]> {
+export function getFileHeadings(fileContent: string): Heading[] {
 	let headings: Heading[] = [];
 	const regex: RegExp = /^(#{1,6})\s(.*)/gm;
-	const content: string = await vault.cachedRead(file);
-	const matches: RegExpStringIterator<RegExpExecArray> = content.matchAll(regex);
-	const lines: string[] = content.split('\n');
+	const matches: RegExpStringIterator<RegExpExecArray> = fileContent.matchAll(regex);
+	const lines: string[] = fileContent.split('\n');
 	let i = 0;
 	for (const match of matches) {
 		headings.push({
