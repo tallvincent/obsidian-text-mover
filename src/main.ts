@@ -161,7 +161,7 @@ export default class TextMoverPlugin extends Plugin {
 					await this.app.vault.append(file, editor.getSelection())
 				} else {
 					// open selector for headings with each heading duplicated for append or prepend
-					const heading = await new HeadingSelectionModal(this.app, headings).pick()
+					const heading: Heading | null = await new HeadingSelectionModal(this.app, headings).pick()
 					if (!heading) {
 						// TODO: if the user cancels the heading selection but we have just created a new file,
 						// should we delete the newly created file or leave it?
