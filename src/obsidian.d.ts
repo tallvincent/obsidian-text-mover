@@ -1,4 +1,5 @@
 import "obsidian";
+import { TFile } from "obsidian"
 import type { DailyNoteSettings } from "./types";
 
 declare module "obsidian" {

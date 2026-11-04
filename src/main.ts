@@ -1,4 +1,3 @@
-/* eslint-disable obsidianmd/rule-custom-message */
 import {
 	Editor,
 	MarkdownView,
@@ -105,7 +104,6 @@ export default class TextMoverPlugin extends Plugin {
 					return
 				}
 				const file = await new FileSelectionModal(this.app).pick();
-				console.log(file)
 
 				if (!file) {
 					this.resetCursor(editor)
@@ -141,7 +139,6 @@ export default class TextMoverPlugin extends Plugin {
 				let file: TFile | null = this.app.vault.getFileByPath(path)
 				if (!file) {
 					let newFileData: string = ''
-					console.log("couldn't find", path)
 					// get the content of the settings template
 					if (settings.template) {
 						const templatePath: string = normalizePath(settings.template)
