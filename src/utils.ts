@@ -1,4 +1,4 @@
-import { Editor, EditorSelection, TFile, Vault } from "obsidian";
+import { Editor, EditorSelection } from "obsidian";
 import { Heading } from "./types";
 
 export function removeSelectionFromEditor(editor: Editor) {
@@ -38,3 +38,16 @@ export function getFileHeadings(fileContent: string): Heading[] {
 	}
 	return headings;
 }
+
+export function getNextHeading(currentHeading: Heading, headings: Heading[]): Heading {
+	if (currentHeading.index <= headings.length) {
+		const nextHeading = headings.at(currentHeading.index + 1)
+		if (nextHeading) {
+			return nextHeading
+		}
+		return currentHeading
+	} else {
+		return currentHeading
+	}
+}
+

@@ -21,7 +21,7 @@ import {
 	TextMoverSettingTab
 } from './settings';
 import { DailyNoteSettings, Heading } from './types';
-import { getFileHeadings, removeSelectionFromEditor } from './utils';
+import { getFileHeadings, getNextHeading, removeSelectionFromEditor } from './utils';
 
 const DEFAULT_DAILY_NOTE_FORMAT = "YYYY-MM-DD";
 
@@ -37,32 +37,34 @@ export default class TextMoverPlugin extends Plugin {
 			id: 'move-text-within-document',
 			name: 'Move text within current document',
 			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
-				this.validateSelection(editor);
+				if (!this.validateSelection(editor)) {
+					return
+				}
 				const fileContent: string = await this.app.vault.cachedRead(ctx.file!)
 				let headings: Heading[] = getFileHeadings(fileContent)
 				if (headings.length === 0) {
 					new Notice('No headings found in current document');
 					return;
 				}
-				const heading = await new HeadingSelectionModal(this.app, headings).pick();
-				console.log(heading)
-
-				if (!heading) {
-					return
-				}
-
 				// Have to remove the heading that the selection is currently in
 				// And have to account for it being the last heading
 				const cursor: EditorPosition = editor.getCursor()
-				if (cursor.line > headings[headings.length - 1]!.line) {
-					headings.remove(headings[headings.length - 1]);
+				if (cursor.line > headings.last()!.line) {
+					headings.remove(headings.last()!);
 				}
 				for (let i = 0; i < headings.length; i++) {
-					const heading: Heading = headings[i];
+					const heading: Heading = headings[i]!;
 					if (cursor.line >= heading.line && cursor.line < headings[i + 1]!.line) {
 						headings.remove(heading);
 						break;
 					}
+				}
+				// Select a heading to move to
+				const heading: Heading | null = await new HeadingSelectionModal(this.app, headings).pick();
+
+				if (!heading) {
+					this.resetCursor(editor)
+					return
 				}
 
 				const currentSelection: string = editor.getSelection()
@@ -90,6 +92,7 @@ export default class TextMoverPlugin extends Plugin {
 						{ ch: 0, line: line }
 					);
 				}
+				this.resetCursor(editor)
 			},
 		});
 		// NOTE: command that takes the currently selected text or line 
@@ -98,10 +101,14 @@ export default class TextMoverPlugin extends Plugin {
 			id: 'move-text-to-another-document',
 			name: 'Move text to another document',
 			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
-				this.validateSelection(editor);
+				if (!this.validateSelection(editor)) {
+					return
+				}
 				const file = await new FileSelectionModal(this.app).pick();
+				console.log(file)
 
 				if (!file) {
+					this.resetCursor(editor)
 					return
 				}
 
@@ -113,6 +120,7 @@ export default class TextMoverPlugin extends Plugin {
 					})
 				})();
 				removeSelectionFromEditor(editor)
+				this.resetCursor(editor)
 			},
 		});
 		// NOTE: command that takes the currently selected text or line 
@@ -120,24 +128,22 @@ export default class TextMoverPlugin extends Plugin {
 		this.addCommand({
 			id: 'move-text-to-next-daily-note',
 			name: 'Move text to next daily note',
-			editorCallback: async (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
-				this.validateSelection(editor);
+			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
+				if (!this.validateSelection(editor)) {
+					return
+				}
 				if (!this.appHasDailyNotesPluginLoaded()) {
 					new Notice('Please enable the daily notes plugin');
 					return;
 				}
 				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings()
-				console.log(settings)
 				const path: string = normalizePath(settings.folder + '/' + moment(Date.now()).add(1, 'd').format(settings.format) + '.md')
-				console.log(path)
 				let file: TFile | null = this.app.vault.getFileByPath(path)
-				console.log(file)
 				if (!file) {
 					let newFileData: string = ''
 					console.log("couldn't find", path)
 					// get the content of the settings template
 					if (settings.template) {
-						console.log("adding template content")
 						const templatePath: string = normalizePath(settings.template)
 						const templateFile: TFile | null = this.app.vault.getFileByPath(templatePath)
 						if (templateFile) {
@@ -150,14 +156,39 @@ export default class TextMoverPlugin extends Plugin {
 				const fileContent: string = await this.app.vault.cachedRead(file)
 				const headings: Heading[] = getFileHeadings(fileContent)
 				if (headings.length == 0) {
+					// TODO: if the file is empty, this is fine
+					// if there is content, we need to add a newline before the selection
 					await this.app.vault.append(file, editor.getSelection())
 				} else {
 					// open selector for headings with each heading duplicated for append or prepend
-					console.log(headings)
+					const heading = await new HeadingSelectionModal(this.app, headings).pick()
+					if (!heading) {
+						// TODO: if the user cancels the heading selection but we have just created a new file,
+						// should we delete the newly created file or leave it?
+						this.resetCursor(editor)
+						return
+					}
+					let lineNumberToInsert: number = 0
+					let lines: string[] = fileContent.split('\n')
+					const nextHeading: Heading = getNextHeading(heading, headings)
+					if (nextHeading.index == heading.index) {
+						lineNumberToInsert = lines.length
+					} else {
+						lineNumberToInsert = nextHeading.line
+					}
+
+					// NOTE: even if the index is out of bounds, splice will just
+					// add it to the end of the array
+					lines.splice(lineNumberToInsert, 0, editor.getSelection())
+					await this.app.vault.process(file, (_data: string) => {
+						return lines.join('\n')
+					})
 				}
 
 				// remove the selection from the current note
-				// removeSelectionFromEditor(editor)
+				removeSelectionFromEditor(editor)
+
+				this.resetCursor(editor)
 			},
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
@@ -201,20 +232,21 @@ export default class TextMoverPlugin extends Plugin {
 	}
 
 	/**
-	 * Ensures the current selection in the editor is not a multi cursor selection and is not a completely empty line.
+	 * Ensures the current selection in the editor is not a multi cursor selection
+	 * and is not a completely empty line.
 	 * Will also update the editor selection to be the entire line if there is no selection.
 	 */
-	validateSelection(editor: Editor): void {
+	validateSelection(editor: Editor): boolean {
 		// Selection uses multiple cursors
 		const editorSelections: EditorSelection[] = editor.listSelections();
 		if (editorSelections.length > 1) {
 			new Notice('Cannot move text with multiple selections');
-			return;
+			return false;
 		}
 
 		// Selection is not empty
 		if (editor.getSelection()) {
-			return;
+			return true;
 		}
 
 		// Update the selection to the entire line if there is no selection
@@ -223,10 +255,10 @@ export default class TextMoverPlugin extends Plugin {
 		const currentLine = editor.getLine(currentLineNumber)
 		if (!currentLine) {
 			new Notice('Cannot move text with no selection');
-			return;
+			return false;
 		}
 		editor.setSelection({ ch: 0, line: currentLineNumber }, { ch: currentLine.length, line: currentLineNumber })
-		return;
+		return true;
 		// FIXME: what about when the editor position is somewhere weird like in frontmatter?
 	}
 
@@ -251,6 +283,10 @@ export default class TextMoverPlugin extends Plugin {
 	validateString(value: unknown): string {
 		return typeof value === "string" ? value : "";
 	}
+
+	resetCursor(editor: Editor): void {
+		editor.setCursor(editor.getCursor("head"));
+	}
 }
 
 class FileSelectionModal extends FuzzySuggestModal<TFile> {
@@ -273,6 +309,15 @@ class FileSelectionModal extends FuzzySuggestModal<TFile> {
 
 	onChooseItem(file: TFile, _evt: MouseEvent | KeyboardEvent): void {
 		this.finish?.(file)
+	}
+
+	onClose(): void {
+		// FuzzySuggestModal may close before calling onChooseItem. Defer the
+		// dismissal result so a same-turn selection can resolve with its heading.
+		void Promise.resolve().then(() => {
+			this.finish?.(null);
+			this.finish = undefined;
+		});
 	}
 }
 
