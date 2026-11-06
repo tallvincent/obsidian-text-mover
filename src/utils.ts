@@ -39,6 +39,8 @@ export function getFileHeadings(fileContent: string): Heading[] {
 	return headings;
 }
 
+// FIXME: can we get the next heading with understanding that a heading may have been 
+// removed because that's the heading the current cursor is in?
 export function getNextHeading(currentHeading: Heading, headings: Heading[]): Heading {
 	if (currentHeading.index <= headings.length) {
 		const nextHeading = headings.at(currentHeading.index + 1)

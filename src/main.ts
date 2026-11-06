@@ -20,7 +20,7 @@ import {
 	TextMoverPluginSettings,
 	TextMoverSettingTab
 } from './settings';
-import { DailyNoteSettings, Heading, TMDate } from './types';
+import { DailyNoteSettings, Heading, InsertLocation, TMDate } from './types';
 import { getFileHeadings, getNextHeading, removeSelectionFromEditor } from './utils';
 
 const DEFAULT_DAILY_NOTE_FORMAT = "YYYY-MM-DD";
@@ -60,7 +60,7 @@ export default class TextMoverPlugin extends Plugin {
 					}
 				}
 				// Select a heading to move to
-				const heading: Heading | null = await new HeadingSelectionModal(this.app, headings).pick();
+				const heading: Heading | null = await new HeadingSelectionModal(this.app, headings, this.settings.appendAndPrepend).pick();
 
 				if (!heading) {
 					this.resetCursor(editor)
@@ -69,29 +69,51 @@ export default class TextMoverPlugin extends Plugin {
 
 				const currentSelection: string = editor.getSelection()
 				removeSelectionFromEditor(editor)
+
 				// Add the selection to the target heading
-				let index: number = heading.index;
-				// If we are moving to the final heading, append the selection to the end of the file
-				if (index + 1 >= headings.length) {
-					const lastLine: number = editor.lastLine();
-					const lastCh: number = editor.getLine(lastLine).length;
-					editor.replaceRange(
-						'\n' + currentSelection,
-						{ ch: lastCh, line: lastLine },
-						{ ch: lastCh, line: lastLine }
-					);
-				} else {
-					// If the section we are moving to is after the current cursor position we have to account for the current selection being deleted
-					let line: number = headings[heading.index + 1]!.line
-					if (line > editor.getCursor().line) {
-						line -= 1
+				const headingIsAfterCursor: boolean = heading.line > editor.getCursor().line
+				// NOTE: this accounts for removing the heading before
+				const headingIsLast: boolean = heading.index == headings.length
+				const textToAdd: string = '\n' + currentSelection
+
+				let lineToAdd: number
+
+				if (headingIsAfterCursor) {
+					if (headingIsLast) {
+						if (heading.insertLocation == InsertLocation.Prepend) {
+							lineToAdd = heading.line - 1
+						} else {
+							lineToAdd = editor.lastLine()
+						}
+					} else {
+						if (heading.insertLocation == InsertLocation.Prepend) {
+							lineToAdd = heading.line - 1
+						} else {
+							// NOTE: this *should* be `headings[heading.index + 1]` to get
+							// the next heading but because we've removed the heading the
+							// cursor is currently in, we use the selected heading index
+							// to actually get the next heading
+							lineToAdd = headings[heading.index]!.line - 2
+						}
 					}
-					editor.replaceRange(
-						currentSelection + '\n',
-						{ ch: 0, line: line },
-						{ ch: 0, line: line }
-					);
+				} else {
+					if (heading.insertLocation == InsertLocation.Prepend) {
+						lineToAdd = heading.line
+					} else {
+						// NOTE: this `heading + 1` works because the removed heading
+						// is after the selected heading so doesn't affect the index
+						lineToAdd = headings[heading.index + 1]!.line - 1
+					}
 				}
+
+				const lastCh: number = editor.getLine(lineToAdd).length;
+
+				editor.replaceRange(
+					textToAdd,
+					{ ch: lastCh, line: lineToAdd },
+					{ ch: lastCh, line: lineToAdd }
+				);
+
 				this.resetCursor(editor)
 			},
 		});
@@ -270,7 +292,7 @@ export default class TextMoverPlugin extends Plugin {
 			await this.app.vault.append(file, editor.getSelection())
 		} else {
 			// open selector for headings with each heading duplicated for append or prepend
-			const heading: Heading | null = await new HeadingSelectionModal(this.app, headings).pick()
+			const heading: Heading | null = await new HeadingSelectionModal(this.app, headings, this.settings.appendAndPrepend).pick()
 			if (!heading) {
 				// TODO: if the user cancels the heading selection but we have just created a new file,
 				// should we delete the newly created file or leave it?
@@ -279,11 +301,16 @@ export default class TextMoverPlugin extends Plugin {
 			}
 			let lineNumberToInsert: number = 0
 			let lines: string[] = fileContent.split('\n')
-			const nextHeading: Heading = getNextHeading(heading, headings)
-			if (nextHeading.index == heading.index) {
-				lineNumberToInsert = lines.length
+
+			if (heading.insertLocation == InsertLocation.Prepend) {
+				lineNumberToInsert = heading.line + 1
 			} else {
-				lineNumberToInsert = nextHeading.line
+				const nextHeading: Heading = getNextHeading(heading, headings)
+				if (nextHeading.index == heading.index) {
+					lineNumberToInsert = lines.length
+				} else {
+					lineNumberToInsert = nextHeading.line
+				}
 			}
 
 			// NOTE: even if the index is out of bounds, splice will just
@@ -292,6 +319,7 @@ export default class TextMoverPlugin extends Plugin {
 			await this.app.vault.process(file, (_data: string) => {
 				return lines.join('\n')
 			})
+
 		}
 	}
 
@@ -358,10 +386,12 @@ class FileSelectionModal extends FuzzySuggestModal<TFile> {
 class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 	private headings: Heading[];
 	private finish?: (heading: Heading | null) => void;
+	private appendAndPrepend: boolean;
 
-	constructor(app: App, headings: Heading[]) {
+	constructor(app: App, headings: Heading[], appendAndPrepend: boolean) {
 		super(app);
 		this.headings = headings;
+		this.appendAndPrepend = appendAndPrepend;
 	}
 
 	pick(): Promise<Heading | null> {
@@ -372,6 +402,15 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 	}
 
 	getItems(): Heading[] {
+		if (this.appendAndPrepend) {
+			let newHeadings: Heading[] = []
+			for (let i = 0; i < this.headings.length; i++) {
+				const h: Heading = this.headings[i]!;
+				newHeadings.push({ ...h, insertLocation: InsertLocation.Append })
+				newHeadings.push({ ...h, insertLocation: InsertLocation.Prepend })
+			}
+			return newHeadings
+		}
 		return this.headings;
 	}
 
@@ -383,7 +422,7 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 		const valueEl = el.createDiv();
 		renderResults(valueEl, match.item.value, match.match);
 
-		el.createEl('small', { text: `Heading ${match.item.level}` });
+		el.createEl('small', { text: `Heading ${match.item.level} - ${match.item.insertLocation == InsertLocation.Prepend ? 'Prepend' : 'Append'} - Line ${match.item.line}` });
 	}
 
 	onChooseItem(heading: Heading, _evt: MouseEvent | KeyboardEvent): void {

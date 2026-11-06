@@ -17,9 +17,14 @@ export interface Heading {
 	level: number;
 	rawValue: string;
 	line: number;
+	insertLocation?: InsertLocation
 }
 
 export interface TMDate {
 	display: string;
 	value: string;
+}
+
+export enum InsertLocation {
+	Append = 'APPEND', Prepend = 'PREPEND'
 }
