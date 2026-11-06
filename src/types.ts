@@ -12,10 +12,14 @@ export interface DailyNoteSettings {
 }
 
 export interface Heading {
-	index: number,
+	index: number;
 	value: string;
 	level: number;
 	rawValue: string;
 	line: number;
 }
 
+export interface TMDate {
+	display: string;
+	value: string;
+}

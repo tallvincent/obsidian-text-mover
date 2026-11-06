@@ -12,14 +12,15 @@ import {
 	renderResults,
 	EditorPosition,
 	moment,
-	normalizePath
+	normalizePath,
+	SuggestModal
 } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	TextMoverPluginSettings,
 	TextMoverSettingTab
 } from './settings';
-import { DailyNoteSettings, Heading } from './types';
+import { DailyNoteSettings, Heading, TMDate } from './types';
 import { getFileHeadings, getNextHeading, removeSelectionFromEditor } from './utils';
 
 const DEFAULT_DAILY_NOTE_FORMAT = "YYYY-MM-DD";
@@ -136,51 +137,7 @@ export default class TextMoverPlugin extends Plugin {
 				}
 				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings()
 				const path: string = normalizePath(settings.folder + '/' + moment(Date.now()).add(1, 'd').format(settings.format) + '.md')
-				let file: TFile | null = this.app.vault.getFileByPath(path)
-				if (!file) {
-					let newFileData: string = ''
-					// get the content of the settings template
-					if (settings.template) {
-						const templatePath: string = normalizePath(settings.template)
-						const templateFile: TFile | null = this.app.vault.getFileByPath(templatePath)
-						if (templateFile) {
-							newFileData = await this.app.vault.read(templateFile)
-						}
-					}
-					file = await this.app.vault.create(path, newFileData)
-				}
-				// get file headings
-				const fileContent: string = await this.app.vault.cachedRead(file)
-				const headings: Heading[] = getFileHeadings(fileContent)
-				if (headings.length == 0) {
-					// TODO: if the file is empty, this is fine
-					// if there is content, we need to add a newline before the selection
-					await this.app.vault.append(file, editor.getSelection())
-				} else {
-					// open selector for headings with each heading duplicated for append or prepend
-					const heading: Heading | null = await new HeadingSelectionModal(this.app, headings).pick()
-					if (!heading) {
-						// TODO: if the user cancels the heading selection but we have just created a new file,
-						// should we delete the newly created file or leave it?
-						this.resetCursor(editor)
-						return
-					}
-					let lineNumberToInsert: number = 0
-					let lines: string[] = fileContent.split('\n')
-					const nextHeading: Heading = getNextHeading(heading, headings)
-					if (nextHeading.index == heading.index) {
-						lineNumberToInsert = lines.length
-					} else {
-						lineNumberToInsert = nextHeading.line
-					}
-
-					// NOTE: even if the index is out of bounds, splice will just
-					// add it to the end of the array
-					lines.splice(lineNumberToInsert, 0, editor.getSelection())
-					await this.app.vault.process(file, (_data: string) => {
-						return lines.join('\n')
-					})
-				}
+				await this.addToDailyNote(editor, path, settings)
 
 				// remove the selection from the current note
 				removeSelectionFromEditor(editor)
@@ -188,6 +145,37 @@ export default class TextMoverPlugin extends Plugin {
 				this.resetCursor(editor)
 			},
 		});
+		this.addCommand({
+			id: 'move-text-to-daily-note',
+			name: 'Move text to daily note',
+			editorCallback: async (editor: Editor, _ctx: MarkdownView | MarkdownFileInfo) => {
+				// for this command the idea is to open a modal that allows the user to type in a natural language
+				// date and then it will go through and do the move to daily note flow as previous.
+				// the only difference is that it should have an initial modal that selects the correct daily note
+				if (!this.validateSelection(editor)) {
+					return
+				}
+				if (!this.appHasDailyNotesPluginLoaded()) {
+					new Notice('Please enable the daily notes plugin');
+					return;
+				}
+				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings()
+				const selectedDate: TMDate | null = await new DateSelectionModal(this.app, settings.format!).pick()
+
+				if (!selectedDate) {
+					this.resetCursor(editor)
+					return
+				}
+
+				const path: string = normalizePath(settings.folder + '/' + moment(selectedDate.value).format(settings.format) + '.md')
+				await this.addToDailyNote(editor, path, settings)
+
+				// remove the selection from the current note
+				removeSelectionFromEditor(editor)
+
+				this.resetCursor(editor)
+			},
+		})
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
 			id: 'open-modal-complex',
@@ -258,6 +246,55 @@ export default class TextMoverPlugin extends Plugin {
 		return true;
 		// FIXME: what about when the editor position is somewhere weird like in frontmatter?
 	}
+
+	async addToDailyNote(editor: Editor, path: string, settings: DailyNoteSettings): Promise<void> {
+		let file: TFile | null = this.app.vault.getFileByPath(path)
+		if (!file) {
+			let newFileData: string = ''
+			// get the content of the settings template
+			if (settings.template) {
+				const templatePath: string = normalizePath(settings.template)
+				const templateFile: TFile | null = this.app.vault.getFileByPath(templatePath)
+				if (templateFile) {
+					newFileData = await this.app.vault.read(templateFile)
+				}
+			}
+			file = await this.app.vault.create(path, newFileData)
+		}
+		// get file headings
+		const fileContent: string = await this.app.vault.cachedRead(file)
+		const headings: Heading[] = getFileHeadings(fileContent)
+		if (headings.length == 0) {
+			// TODO: if the file is empty, this is fine
+			// if there is content, we need to add a newline before the selection
+			await this.app.vault.append(file, editor.getSelection())
+		} else {
+			// open selector for headings with each heading duplicated for append or prepend
+			const heading: Heading | null = await new HeadingSelectionModal(this.app, headings).pick()
+			if (!heading) {
+				// TODO: if the user cancels the heading selection but we have just created a new file,
+				// should we delete the newly created file or leave it?
+				this.resetCursor(editor)
+				return
+			}
+			let lineNumberToInsert: number = 0
+			let lines: string[] = fileContent.split('\n')
+			const nextHeading: Heading = getNextHeading(heading, headings)
+			if (nextHeading.index == heading.index) {
+				lineNumberToInsert = lines.length
+			} else {
+				lineNumberToInsert = nextHeading.line
+			}
+
+			// NOTE: even if the index is out of bounds, splice will just
+			// add it to the end of the array
+			lines.splice(lineNumberToInsert, 0, editor.getSelection())
+			await this.app.vault.process(file, (_data: string) => {
+				return lines.join('\n')
+			})
+		}
+	}
+
 
 	appHasDailyNotesPluginLoaded(): boolean {
 		const dailyNotesPlugin = this.app.internalPlugins.plugins["daily-notes"];
@@ -351,6 +388,95 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 
 	onChooseItem(heading: Heading, _evt: MouseEvent | KeyboardEvent): void {
 		this.finish?.(heading)
+	}
+
+	onClose(): void {
+		// FuzzySuggestModal may close before calling onChooseItem. Defer the
+		// dismissal result so a same-turn selection can resolve with its heading.
+		void Promise.resolve().then(() => {
+			this.finish?.(null);
+			this.finish = undefined;
+		});
+	}
+}
+
+class DateSelectionModal extends SuggestModal<TMDate> {
+	private finish?: (tmdate: TMDate | null) => void;
+	private defaultSuggestions: TMDate[] = [];
+	private dateFormat: string;
+
+	constructor(app: App, dateFormat: string) {
+		super(app);
+		this.dateFormat = dateFormat
+
+		let suggestions: TMDate[] = []
+		for (let i = 0; i < 7; i++) {
+			const date = moment(Date.now()).add(i, 'd')
+			let display = ''
+			if (i == 0) {
+				display = 'Today'
+			} else if (i == 1) {
+				display = 'Tomorrow'
+			} else {
+				display = date.format('dddd')
+			}
+			suggestions.push(
+				{ display: display, value: date.format(dateFormat) }
+			)
+		}
+		this.defaultSuggestions = suggestions
+	}
+
+	pick(): Promise<TMDate | null> {
+		return new Promise((resolve) => {
+			this.finish = resolve
+			this.open()
+		})
+	}
+
+	getSuggestions(query: string): TMDate[] {
+		// query has a number so user wants to put in a manual date
+		if (/(?:^\d{1,2})(?:$|\D)/.test(query)) {
+			const parts: string[] = query.trim().split(/\s+/)
+			const day: number = parseInt(parts[0]!)
+			const currentMonth: number = parseInt(moment(Date.now()).format('M'))
+
+			let suggestions: TMDate[] = []
+			for (let i = 0; i < 12; i++) {
+				const currentDate: moment.Moment = moment(Date.now())
+				const nextDate = currentDate.month(currentMonth - 1 + i).date(day)
+				// exclude any duplicate months caused by date wraparound
+				if (nextDate.month() == (currentMonth - 1 + i) % 12) {
+					suggestions.push({
+						display: nextDate.format('Do MMMM YYYY'),
+						value: nextDate.format(this.dateFormat)
+					})
+				}
+			}
+
+			if (parts.length > 1) {
+				// match the 2nd query part to the month
+				return suggestions.filter(({ display }) => {
+					const displayParts = display.split(' ')
+					return displayParts[1]!.toLowerCase().startsWith(parts[1]!.toLowerCase())
+				})
+			}
+
+			return suggestions
+		}
+		// filter the default suggestions
+		return this.defaultSuggestions.filter(({ display }) =>
+			display.toLowerCase().startsWith(query.toLowerCase())
+		);
+	}
+
+	renderSuggestion(value: TMDate, el: HTMLElement): void {
+		el.createDiv({ text: value.display })
+		el.createEl('small', { text: value.value })
+	}
+
+	onChooseSuggestion(tmdate: TMDate, _evt: MouseEvent | KeyboardEvent): void {
+		this.finish?.(tmdate)
 	}
 
 	onClose(): void {
