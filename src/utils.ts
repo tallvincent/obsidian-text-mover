@@ -17,9 +17,17 @@ export function removeSelectionFromEditor(editor: Editor) {
 	} else {
 		// NOTE: need to make sure that `from` is before `to`
 		if (editorSelection.anchor.ch < editorSelection.head.ch) {
-			editor.replaceRange('', editorSelection.anchor, editorSelection.head);
+			editor.replaceRange(
+				'',
+				editorSelection.anchor,
+				editorSelection.head
+			);
 		} else {
-			editor.replaceRange('', editorSelection.head, editorSelection.anchor);
+			editor.replaceRange(
+				'',
+				editorSelection.head,
+				editorSelection.anchor
+			);
 		}
 	}
 }

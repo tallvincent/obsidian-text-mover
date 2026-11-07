@@ -47,7 +47,9 @@ export default class TextMoverPlugin extends Plugin {
 				if (!this.validateSelection(editor)) {
 					return;
 				}
-				const fileContent: string = await this.app.vault.cachedRead(ctx.file!);
+				const fileContent: string = await this.app.vault.cachedRead(
+					ctx.file!
+				);
 				let headings: Heading[] = getFileHeadings(fileContent);
 				if (headings.length === 0) {
 					new Notice('No headings found in current document');
@@ -178,7 +180,8 @@ export default class TextMoverPlugin extends Plugin {
 					new Notice('Please enable the daily notes plugin');
 					return;
 				}
-				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings();
+				const settings: DailyNoteSettings =
+					this.getDailyNotesPluginSettings();
 				const path: string = normalizePath(
 					settings.folder +
 						'/' +
@@ -210,11 +213,13 @@ export default class TextMoverPlugin extends Plugin {
 					new Notice('Please enable the daily notes plugin');
 					return;
 				}
-				const settings: DailyNoteSettings = this.getDailyNotesPluginSettings();
-				const selectedDate: TMDate | null = await new DateSelectionModal(
-					this.app,
-					settings.format!
-				).pick();
+				const settings: DailyNoteSettings =
+					this.getDailyNotesPluginSettings();
+				const selectedDate: TMDate | null =
+					await new DateSelectionModal(
+						this.app,
+						settings.format!
+					).pick();
 
 				if (!selectedDate) {
 					this.resetCursor(editor);
@@ -372,7 +377,8 @@ export default class TextMoverPlugin extends Plugin {
 	}
 
 	appHasDailyNotesPluginLoaded(): boolean {
-		const dailyNotesPlugin = this.app.internalPlugins.plugins['daily-notes'];
+		const dailyNotesPlugin =
+			this.app.internalPlugins.plugins['daily-notes'];
 		if (dailyNotesPlugin && dailyNotesPlugin.enabled) {
 			return true;
 		}
@@ -454,8 +460,14 @@ class HeadingSelectionModal extends FuzzySuggestModal<Heading> {
 			let newHeadings: Heading[] = [];
 			for (let i = 0; i < this.headings.length; i++) {
 				const h: Heading = this.headings[i]!;
-				newHeadings.push({ ...h, insertLocation: InsertLocation.Append });
-				newHeadings.push({ ...h, insertLocation: InsertLocation.Prepend });
+				newHeadings.push({
+					...h,
+					insertLocation: InsertLocation.Append,
+				});
+				newHeadings.push({
+					...h,
+					insertLocation: InsertLocation.Prepend,
+				});
 			}
 			return newHeadings;
 		}
@@ -509,7 +521,10 @@ class DateSelectionModal extends SuggestModal<TMDate> {
 			} else {
 				display = date.format('dddd');
 			}
-			suggestions.push({ display: display, value: date.format(dateFormat) });
+			suggestions.push({
+				display: display,
+				value: date.format(dateFormat),
+			});
 		}
 		this.defaultSuggestions = suggestions;
 	}
@@ -526,12 +541,16 @@ class DateSelectionModal extends SuggestModal<TMDate> {
 		if (/(?:^\d{1,2})(?:$|\D)/.test(query)) {
 			const parts: string[] = query.trim().split(/\s+/);
 			const day: number = parseInt(parts[0]!);
-			const currentMonth: number = parseInt(moment(Date.now()).format('M'));
+			const currentMonth: number = parseInt(
+				moment(Date.now()).format('M')
+			);
 
 			let suggestions: TMDate[] = [];
 			for (let i = 0; i < 12; i++) {
 				const currentDate: moment.Moment = moment(Date.now());
-				const nextDate = currentDate.month(currentMonth - 1 + i).date(day);
+				const nextDate = currentDate
+					.month(currentMonth - 1 + i)
+					.date(day);
 				// exclude any duplicate months caused by date wraparound
 				if (nextDate.month() == (currentMonth - 1 + i) % 12) {
 					suggestions.push({
