@@ -1,8 +1,8 @@
-import "obsidian";
-import { TFile } from "obsidian"
-import type { DailyNoteSettings } from "./types";
+import 'obsidian';
+import { TFile } from 'obsidian';
+import type { DailyNoteSettings } from './types';
 
-declare module "obsidian" {
+declare module 'obsidian' {
 	export interface FoldPosition {
 		from: number;
 		to: number;
@@ -34,7 +34,7 @@ declare module "obsidian" {
 		};
 	}
 
-	type KnownCommunityPlugin = "periodic-notes" | "calendar";
+	type KnownCommunityPlugin = 'periodic-notes' | 'calendar';
 
 	/**
 	 * Obsidian's `app.plugins` registry of community plugins. Returns
@@ -62,7 +62,7 @@ declare module "obsidian" {
 
 	export interface InternalPlugins {
 		plugins: Record<string, InternalPluginEntry | undefined>;
-		getPluginById(id: "daily-notes"): InternalPluginEntry | undefined;
+		getPluginById(id: 'daily-notes'): InternalPluginEntry | undefined;
 		getPluginById(id: string): InternalPluginEntry | undefined;
 	}
 

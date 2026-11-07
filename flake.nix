@@ -27,7 +27,7 @@
               typescript-language-server
               vscode-langservers-extracted
               eslint
-              prettier
+              prettierd
 
               # Nix development
               nil

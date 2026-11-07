@@ -24,9 +24,9 @@ export class TextMoverSettingTab extends PluginSettingTab {
 				desc: 'When enabled, you will have the option to either append or prepend to a heading',
 				control: {
 					type: 'toggle',
-					key: 'appendAndPrepend'
-				}
-			}
-		]
+					key: 'appendAndPrepend',
+				},
+			},
+		];
 	}
 }

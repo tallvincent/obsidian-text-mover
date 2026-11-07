@@ -28,5 +28,5 @@ export default defineConfig(
 			},
 		},
 	},
-	...obsidianmd.configs.recommended,
+	...obsidianmd.configs.recommended
 );
