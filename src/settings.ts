@@ -5,7 +5,6 @@ import {
 	DropdownComponent,
 	Modal,
 	normalizePath,
-	Notice,
 	PluginSettingTab,
 	SearchComponent,
 	Setting,
@@ -67,6 +66,7 @@ class FileSearchInput extends AbstractInputSuggest<TFile> {
 }
 
 class AddCustomCommandModal extends Modal {
+	private plugin: TextMoverPlugin;
 	private headingDropdown!: DropdownComponent;
 	private submitButton!: ButtonComponent;
 	private fileSearch!: SearchComponent;
@@ -96,23 +96,20 @@ class AddCustomCommandModal extends Modal {
 		onSubmit: (result: CustomTextMoveCommand) => void
 	) {
 		super(app);
+		this.plugin = plugin;
 		this.setTitle('Configure a new custom command');
 
 		new Setting(this.contentEl)
 			.setName('Name')
-			.setDesc('The name of your custom command')
+			.setDesc(
+				'Only letters, numbers, and spaces are allowed. Cannot be the same as another custom command.'
+			)
 			.addText((text) =>
 				text.setPlaceholder('Enter a name').onChange((value) => {
-					if (/^[a-zA-Z0-9\s]*$/.test(value)) {
+					if (this.nameIsValid(value)) {
 						this.command.name = value;
 						this.updateSubmitButton();
 					} else {
-						new Notice(
-							'Only letters, numbers, and spaces are allowed'
-						);
-						text.inputEl.setCustomValidity(
-							'Only letters, numbers, and spaces are allowed'
-						);
 						this.command.name = value;
 						this.updateSubmitButton();
 					}
@@ -129,7 +126,7 @@ class AddCustomCommandModal extends Modal {
 					this.headingOptions = this.defaultHeadingOptions;
 					await this.updateHeadingOptions();
 				} else {
-					await this.dailyNoteRootSelected(plugin);
+					await this.dailyNoteRootSelected();
 				}
 				this.updateSubmitButton();
 				this.updateFileSearch();
@@ -184,19 +181,17 @@ class AddCustomCommandModal extends Modal {
 				.setDisabled(true)
 				.onClick(() => {
 					// TODO: need to check that path is valid before submitting
-					this.command.id = this.command.name
-						?.toLowerCase()
-						.replace(' ', '-');
+					this.command.id = this.nameToId(this.command.name);
 					this.close();
 					onSubmit(this.command);
 				});
 		});
 	}
 
-	private async dailyNoteRootSelected(plugin: TextMoverPlugin) {
-		if (plugin.appHasDailyNotesPluginLoaded()) {
+	private async dailyNoteRootSelected() {
+		if (this.plugin.appHasDailyNotesPluginLoaded()) {
 			const settings: DailyNoteSettings =
-				plugin.getDailyNotesPluginSettings();
+				this.plugin.getDailyNotesPluginSettings();
 			if (settings.template) {
 				const path = normalizePath(settings.template);
 				await this.updateHeadingOptions(path);
@@ -240,9 +235,7 @@ class AddCustomCommandModal extends Modal {
 		this.submitButton.buttonEl.replaceChildren();
 		// true when path is '' or name is ''
 		this.submitButton.setDisabled(
-			!this.command.path ||
-				!this.command.name ||
-				!/^[a-zA-Z0-9\s]*$/.test(this.command.name)
+			!this.command.path || !this.nameIsValid(this.command.name)
 		);
 		this.submitButton.setButtonText('Submit');
 	}
@@ -253,6 +246,33 @@ class AddCustomCommandModal extends Modal {
 		this.fileSearch.setDisabled(
 			this.command.root === CustomCommandRoot.DailyNote
 		);
+	}
+
+	private nameToId(name?: string): string {
+		if (!name) {
+			return '';
+		}
+		return name?.toLowerCase().replace(' ', '-');
+	}
+
+	private nameIsValid(name?: string): boolean {
+		if (!name) {
+			return false;
+		}
+		if (!/^[a-zA-Z0-9\s]*$/.test(name)) {
+			return false;
+		}
+		return this.idIsValid(this.nameToId(name));
+	}
+
+	private idIsValid(id?: string): boolean {
+		if (!id) {
+			return false;
+		}
+		const duplicateId = this.plugin.settings.customCommands
+			?.map(({ id }) => id)
+			.includes(id);
+		return /^[a-zA-Z0-9-\s]*$/.test(id) && !duplicateId;
 	}
 }
 
@@ -275,7 +295,6 @@ export class TextMoverSettingTab extends PluginSettingTab {
 					// TODO: check values are correct before submitting
 					// i.e. path resolves somewhere
 					commands.push(result);
-					console.log(result);
 					this.plugin.settings.customCommands = commands;
 					void this.plugin.saveData(this.plugin.settings);
 					this.plugin.addCustomCommand(result);
