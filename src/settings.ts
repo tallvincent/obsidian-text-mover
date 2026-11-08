@@ -116,25 +116,31 @@ class AddCustomCommandModal extends Modal {
 				})
 			);
 
-		new Setting(this.contentEl).setName('Type').addDropdown((dropdown) =>
-			dropdown.addOptions(this.rootOptions).onChange(async (value) => {
-				const root: CustomCommandRoot =
-					value.toUpperCase() as CustomCommandRoot;
-				this.command.root = root;
-				if (root === CustomCommandRoot.File) {
-					this.command.path = '';
-					this.headingOptions = this.defaultHeadingOptions;
-					await this.updateHeadingOptions();
-				} else {
-					await this.dailyNoteRootSelected();
-				}
-				this.updateSubmitButton();
-				this.updateFileSearch();
-			})
-		);
+		new Setting(this.contentEl)
+			.setName('Type')
+			.setDesc("Move to a specific file or to tomorrow's daily note.")
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOptions(this.rootOptions)
+					.onChange(async (value) => {
+						const root: CustomCommandRoot =
+							value.toUpperCase() as CustomCommandRoot;
+						this.command.root = root;
+						if (root === CustomCommandRoot.File) {
+							this.command.path = '';
+							this.headingOptions = this.defaultHeadingOptions;
+							await this.updateHeadingOptions();
+						} else {
+							await this.dailyNoteRootSelected();
+						}
+						this.updateSubmitButton();
+						this.updateFileSearch();
+					})
+			);
 
 		new Setting(this.contentEl)
 			.setName('File')
+			.setDesc('Must be a valid file path.')
 			.addSearch(async (search) => {
 				this.fileSearch = search;
 				// FIXME: this needs to be a dropdown with search or make sure the
@@ -150,6 +156,9 @@ class AddCustomCommandModal extends Modal {
 
 		new Setting(this.contentEl)
 			.setName('Heading')
+			.setDesc(
+				"The heading to move the text to. Select 'no heading' to use the file contents."
+			)
 			.addDropdown((dropdown) => {
 				this.headingDropdown = dropdown;
 				return dropdown
@@ -163,6 +172,7 @@ class AddCustomCommandModal extends Modal {
 
 		new Setting(this.contentEl)
 			.setName('Insert location')
+			.setDesc('Either append or prepend the text to the file.')
 			.addDropdown((dropdown) =>
 				dropdown
 					.addOptions(this.insertLocationOptions)
@@ -235,7 +245,9 @@ class AddCustomCommandModal extends Modal {
 		this.submitButton.buttonEl.replaceChildren();
 		// true when path is '' or name is ''
 		this.submitButton.setDisabled(
-			!this.command.path || !this.nameIsValid(this.command.name)
+			!this.command.path ||
+				!this.nameIsValid(this.command.name) ||
+				!this.pathIsValid(this.command.path)
 		);
 		this.submitButton.setButtonText('Submit');
 	}
@@ -246,6 +258,10 @@ class AddCustomCommandModal extends Modal {
 		this.fileSearch.setDisabled(
 			this.command.root === CustomCommandRoot.DailyNote
 		);
+	}
+
+	private pathIsValid(path: string): boolean {
+		return this.app.vault.getFileByPath(path) != null;
 	}
 
 	private nameToId(name?: string): string {
@@ -292,8 +308,6 @@ export class TextMoverSettingTab extends PluginSettingTab {
 				this.app,
 				this.plugin,
 				(result: CustomTextMoveCommand) => {
-					// TODO: check values are correct before submitting
-					// i.e. path resolves somewhere
 					commands.push(result);
 					this.plugin.settings.customCommands = commands;
 					void this.plugin.saveData(this.plugin.settings);

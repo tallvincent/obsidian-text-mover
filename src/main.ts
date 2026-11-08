@@ -394,19 +394,32 @@ export default class TextMoverPlugin extends Plugin {
 		editor: Editor,
 		command: CustomTextMoveCommand
 	): Promise<void> {
-		let path: string;
+		let file: TFile | null;
 		if (command.root == CustomCommandRoot.DailyNote) {
 			if (!this.appHasDailyNotesPluginLoaded()) {
 				new Notice('Please enable the daily notes plugin');
 				this.resetCursor(editor);
 				return;
 			}
-			path = this.getPathForNextDailyNote();
+			const settings: DailyNoteSettings =
+				this.getDailyNotesPluginSettings();
+			const path: string = this.getPathForNextDailyNote(settings);
+
+			let newFileData: string = '';
+			// get the content of the settings template
+			if (settings.template) {
+				const templatePath: string = normalizePath(settings.template);
+				const templateFile: TFile | null =
+					this.app.vault.getFileByPath(templatePath);
+				if (templateFile) {
+					newFileData = await this.app.vault.read(templateFile);
+				}
+			}
+			file = await this.app.vault.create(path, newFileData);
 		} else {
-			path = command.path!;
+			file = this.app.vault.getFileByPath(command.path!);
 		}
 
-		let file: TFile | null = this.app.vault.getFileByPath(path);
 		if (!file) {
 			return;
 		}
@@ -416,7 +429,7 @@ export default class TextMoverPlugin extends Plugin {
 		let lineNumberToInsert: number = 0;
 		let lines: string[] = fileContent.split('\n');
 
-		if (!command.heading) {
+		if (!command.heading || !headings.includes(command.heading)) {
 			if (command.insertLocation == InsertLocation.Prepend) {
 				lineNumberToInsert = 0;
 			} else {
