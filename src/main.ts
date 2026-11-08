@@ -403,7 +403,11 @@ export default class TextMoverPlugin extends Plugin {
 					newFileData = await this.app.vault.read(templateFile);
 				}
 			}
-			file = await this.app.vault.create(path, newFileData);
+
+			file = this.app.vault.getFileByPath(path);
+			if (!file) {
+				file = await this.app.vault.create(path, newFileData);
+			}
 		} else {
 			file = this.app.vault.getFileByPath(command.path!);
 		}
