@@ -381,13 +381,13 @@ export default class TextMoverPlugin extends Plugin {
 	async addToFile(
 		editor: Editor,
 		command: CustomTextMoveCommand
-	): Promise<void> {
+	): Promise<boolean> {
 		let file: TFile | null;
 		if (command.root == CustomCommandRoot.DailyNote) {
 			if (!this.appHasDailyNotesPluginLoaded()) {
 				new Notice('Please enable the daily notes plugin');
 				this.resetCursor(editor);
-				return;
+				return false;
 			}
 			const settings: DailyNoteSettings =
 				this.getDailyNotesPluginSettings();
@@ -409,7 +409,7 @@ export default class TextMoverPlugin extends Plugin {
 		}
 
 		if (!file) {
-			return;
+			return false;
 		}
 		const fileContent: string = await this.app.vault.cachedRead(file);
 		const headings: Heading[] = getFileHeadings(fileContent);
@@ -444,6 +444,8 @@ export default class TextMoverPlugin extends Plugin {
 		await this.app.vault.process(file, (_data: string) => {
 			return lines.join('\n');
 		});
+
+		return true;
 	}
 
 	appHasDailyNotesPluginLoaded(): boolean {
@@ -510,10 +512,10 @@ export default class TextMoverPlugin extends Plugin {
 				}
 
 				// add to the file
-				await this.addToFile(editor, command);
-
-				// remove the selection from the current note
-				removeSelectionFromEditor(editor);
+				if (await this.addToFile(editor, command)) {
+					// remove the selection from the current note
+					removeSelectionFromEditor(editor);
+				}
 
 				this.resetCursor(editor);
 				return;
