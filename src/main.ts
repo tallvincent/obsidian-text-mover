@@ -152,6 +152,7 @@ export default class TextMoverPlugin extends Plugin {
 				editor: Editor,
 				_ctx: MarkdownView | MarkdownFileInfo
 			) => {
+				// TODO: want to be able to select headings
 				if (!this.validateSelection(editor)) {
 					return;
 				}
@@ -259,27 +260,6 @@ export default class TextMoverPlugin extends Plugin {
 				}
 			}
 		}
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						// new SelectionModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			},
-		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new TextMoverSettingTab(this.app, this));
