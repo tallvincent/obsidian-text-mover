@@ -72,3 +72,27 @@ export function getNextHeading(
 export function capitalizeFirstLetter(val: string) {
 	return String(val).charAt(0).toUpperCase() + String(val).slice(1);
 }
+
+export function headingInHeadings(
+	heading: Heading,
+	headings: Heading[]
+): boolean {
+	if (!heading || !headings) {
+		return false;
+	}
+	for (let i = 0; i < headings.length; i++) {
+		const h = headings[i];
+		if (
+			h &&
+			heading.index === h.index &&
+			heading.value === h.value &&
+			heading.level === h.level &&
+			heading.line === h.line &&
+			heading.insertLocation === h.insertLocation &&
+			heading.rawValue === h.rawValue
+		) {
+			return true;
+		}
+	}
+	return false;
+}

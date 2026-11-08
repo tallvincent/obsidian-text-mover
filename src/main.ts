@@ -31,6 +31,7 @@ import {
 import {
 	getFileHeadings,
 	getNextHeading,
+	headingInHeadings,
 	removeSelectionFromEditor,
 } from './utils';
 
@@ -195,10 +196,10 @@ export default class TextMoverPlugin extends Plugin {
 				const settings: DailyNoteSettings =
 					this.getDailyNotesPluginSettings();
 				const path: string = this.getPathForNextDailyNote(settings);
-				await this.addToDailyNote(editor, path, settings);
-
-				// remove the selection from the current note
-				removeSelectionFromEditor(editor);
+				if (await this.addToDailyNote(editor, path, settings)) {
+					// remove the selection from the current note
+					removeSelectionFromEditor(editor);
+				}
 
 				this.resetCursor(editor);
 			},
@@ -241,10 +242,10 @@ export default class TextMoverPlugin extends Plugin {
 						moment(selectedDate.value).format(settings.format) +
 						'.md'
 				);
-				await this.addToDailyNote(editor, path, settings);
-
-				// remove the selection from the current note
-				removeSelectionFromEditor(editor);
+				if (await this.addToDailyNote(editor, path, settings)) {
+					// remove the selection from the current note
+					removeSelectionFromEditor(editor);
+				}
 
 				this.resetCursor(editor);
 			},
@@ -317,7 +318,7 @@ export default class TextMoverPlugin extends Plugin {
 		editor: Editor,
 		path: string,
 		settings: DailyNoteSettings
-	): Promise<void> {
+	): Promise<boolean> {
 		let file: TFile | null = this.app.vault.getFileByPath(path);
 		if (!file) {
 			let newFileData: string = '';
@@ -339,6 +340,7 @@ export default class TextMoverPlugin extends Plugin {
 			// TODO: if the file is empty, this is fine
 			// if there is content, we need to add a newline before the selection
 			await this.app.vault.append(file, editor.getSelection());
+			return true;
 		} else {
 			// open selector for headings with each heading duplicated for append or prepend
 			const heading: Heading | null = await new HeadingSelectionModal(
@@ -350,7 +352,7 @@ export default class TextMoverPlugin extends Plugin {
 				// TODO: if the user cancels the heading selection but we have just created a new file,
 				// should we delete the newly created file or leave it?
 				this.resetCursor(editor);
-				return;
+				return false;
 			}
 			let lineNumberToInsert: number = 0;
 			let lines: string[] = fileContent.split('\n');
@@ -372,6 +374,7 @@ export default class TextMoverPlugin extends Plugin {
 			await this.app.vault.process(file, (_data: string) => {
 				return lines.join('\n');
 			});
+			return true;
 		}
 	}
 
@@ -414,7 +417,7 @@ export default class TextMoverPlugin extends Plugin {
 		let lineNumberToInsert: number = 0;
 		let lines: string[] = fileContent.split('\n');
 
-		if (!command.heading || !headings.includes(command.heading)) {
+		if (!command.heading || !headingInHeadings(command.heading, headings)) {
 			if (command.insertLocation == InsertLocation.Prepend) {
 				lineNumberToInsert = 0;
 			} else {
