@@ -234,7 +234,12 @@ export default class TextMoverPlugin extends Plugin {
 					return;
 				}
 
-				const path: string = this.getPathForNextDailyNote(settings);
+				const path: string = normalizePath(
+					settings.folder +
+						'/' +
+						moment(selectedDate.value).format(settings.format) +
+						'.md'
+				);
 				await this.addToDailyNote(editor, path, settings);
 
 				// remove the selection from the current note
