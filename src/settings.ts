@@ -5,6 +5,7 @@ import {
 	DropdownComponent,
 	Modal,
 	normalizePath,
+	Notice,
 	PluginSettingTab,
 	SearchComponent,
 	Setting,
@@ -21,6 +22,7 @@ import {
 import { capitalizeFirstLetter, getFileHeadings } from './utils';
 
 export interface CustomTextMoveCommand {
+	id?: string;
 	name?: string;
 	path?: string;
 	root: CustomCommandRoot;
@@ -101,8 +103,19 @@ class AddCustomCommandModal extends Modal {
 			.setDesc('The name of your custom command')
 			.addText((text) =>
 				text.setPlaceholder('Enter a name').onChange((value) => {
-					this.command.name = value;
-					this.updateSubmitButton();
+					if (/^[a-zA-Z0-9\s]*$/.test(value)) {
+						this.command.name = value;
+						this.updateSubmitButton();
+					} else {
+						new Notice(
+							'Only letters, numbers, and spaces are allowed'
+						);
+						text.inputEl.setCustomValidity(
+							'Only letters, numbers, and spaces are allowed'
+						);
+						this.command.name = value;
+						this.updateSubmitButton();
+					}
 				})
 			);
 
@@ -171,6 +184,9 @@ class AddCustomCommandModal extends Modal {
 				.setDisabled(true)
 				.onClick(() => {
 					// TODO: need to check that path is valid before submitting
+					this.command.id = this.command.name
+						?.toLowerCase()
+						.replace(' ', '-');
 					this.close();
 					onSubmit(this.command);
 				});
@@ -223,7 +239,11 @@ class AddCustomCommandModal extends Modal {
 	private updateSubmitButton() {
 		this.submitButton.buttonEl.replaceChildren();
 		// true when path is '' or name is ''
-		this.submitButton.setDisabled(!this.command.path || !this.command.name);
+		this.submitButton.setDisabled(
+			!this.command.path ||
+				!this.command.name ||
+				!/^[a-zA-Z0-9\s]*$/.test(this.command.name)
+		);
 		this.submitButton.setButtonText('Submit');
 	}
 
@@ -258,6 +278,7 @@ export class TextMoverSettingTab extends PluginSettingTab {
 					console.log(result);
 					this.plugin.settings.customCommands = commands;
 					void this.plugin.saveData(this.plugin.settings);
+					this.plugin.addCustomCommand(result);
 					this.update();
 				}
 			).open();
@@ -279,8 +300,10 @@ export class TextMoverSettingTab extends PluginSettingTab {
 					action: openAddForm,
 				},
 				onDelete: (idx) => {
-					commands.splice(idx, 1);
+					const commandToRemove: CustomTextMoveCommand =
+						commands.splice(idx, 1)[0]!;
 					void this.plugin.saveData(this.plugin.settings);
+					this.plugin.removeCustomCommand(commandToRemove.id!);
 					this.update();
 				},
 				items: commands.map((command) => {

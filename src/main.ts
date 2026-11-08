@@ -250,33 +250,7 @@ export default class TextMoverPlugin extends Plugin {
 				if (!command || !command.path || !command.name) {
 					new Notice('This text mover command does not exist');
 				} else {
-					this.addCommand({
-						id: command.name,
-						name: command.name,
-						editorCallback: async (
-							editor: Editor,
-							_ctx: MarkdownView | MarkdownFileInfo
-						) => {
-							if (!command) {
-								return new Notice(
-									'This text mover command does not exist'
-								);
-							}
-							if (!this.validateSelection(editor)) {
-								this.resetCursor(editor);
-								return;
-							}
-
-							// add to the file
-							await this.addToFile(editor, command);
-
-							// remove the selection from the current note
-							removeSelectionFromEditor(editor);
-
-							this.resetCursor(editor);
-							return;
-						},
-					});
+					this.addCustomCommand(command);
 				}
 			}
 		}
@@ -512,6 +486,38 @@ export default class TextMoverPlugin extends Plugin {
 
 	resetCursor(editor: Editor): void {
 		editor.setCursor(editor.getCursor('head'));
+	}
+
+	removeCustomCommand(id: string) {
+		this.removeCommand(id);
+	}
+
+	addCustomCommand(command: CustomTextMoveCommand) {
+		this.addCommand({
+			id: command.id!,
+			name: command.name!,
+			editorCallback: async (
+				editor: Editor,
+				_ctx: MarkdownView | MarkdownFileInfo
+			) => {
+				if (!command) {
+					return new Notice('This text mover command does not exist');
+				}
+				if (!this.validateSelection(editor)) {
+					this.resetCursor(editor);
+					return;
+				}
+
+				// add to the file
+				await this.addToFile(editor, command);
+
+				// remove the selection from the current note
+				removeSelectionFromEditor(editor);
+
+				this.resetCursor(editor);
+				return;
+			},
+		});
 	}
 }
 
