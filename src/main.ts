@@ -16,11 +16,18 @@ import {
 	SuggestModal,
 } from 'obsidian';
 import {
+	CustomTextMoveCommand,
 	DEFAULT_SETTINGS,
 	TextMoverPluginSettings,
 	TextMoverSettingTab,
 } from './settings';
-import { DailyNoteSettings, Heading, InsertLocation, TMDate } from './types';
+import {
+	CustomCommandRoot,
+	DailyNoteSettings,
+	Heading,
+	InsertLocation,
+	TMDate,
+} from './types';
 import {
 	getFileHeadings,
 	getNextHeading,
@@ -45,6 +52,7 @@ export default class TextMoverPlugin extends Plugin {
 				ctx: MarkdownView | MarkdownFileInfo
 			) => {
 				if (!this.validateSelection(editor)) {
+					this.resetCursor(editor);
 					return;
 				}
 				const fileContent: string = await this.app.vault.cachedRead(
@@ -53,6 +61,7 @@ export default class TextMoverPlugin extends Plugin {
 				let headings: Heading[] = getFileHeadings(fileContent);
 				if (headings.length === 0) {
 					new Notice('No headings found in current document');
+					this.resetCursor(editor);
 					return;
 				}
 				// Have to remove the heading that the selection is currently in
@@ -174,20 +183,17 @@ export default class TextMoverPlugin extends Plugin {
 				_ctx: MarkdownView | MarkdownFileInfo
 			) => {
 				if (!this.validateSelection(editor)) {
+					this.resetCursor(editor);
 					return;
 				}
 				if (!this.appHasDailyNotesPluginLoaded()) {
 					new Notice('Please enable the daily notes plugin');
+					this.resetCursor(editor);
 					return;
 				}
 				const settings: DailyNoteSettings =
 					this.getDailyNotesPluginSettings();
-				const path: string = normalizePath(
-					settings.folder +
-						'/' +
-						moment(Date.now()).add(1, 'd').format(settings.format) +
-						'.md'
-				);
+				const path: string = this.getPathForNextDailyNote(settings);
 				await this.addToDailyNote(editor, path, settings);
 
 				// remove the selection from the current note
@@ -207,10 +213,12 @@ export default class TextMoverPlugin extends Plugin {
 				// date and then it will go through and do the move to daily note flow as previous.
 				// the only difference is that it should have an initial modal that selects the correct daily note
 				if (!this.validateSelection(editor)) {
+					this.resetCursor(editor);
 					return;
 				}
 				if (!this.appHasDailyNotesPluginLoaded()) {
 					new Notice('Please enable the daily notes plugin');
+					this.resetCursor(editor);
 					return;
 				}
 				const settings: DailyNoteSettings =
@@ -226,12 +234,7 @@ export default class TextMoverPlugin extends Plugin {
 					return;
 				}
 
-				const path: string = normalizePath(
-					settings.folder +
-						'/' +
-						moment(selectedDate.value).format(settings.format) +
-						'.md'
-				);
+				const path: string = this.getPathForNextDailyNote(settings);
 				await this.addToDailyNote(editor, path, settings);
 
 				// remove the selection from the current note
@@ -240,6 +243,43 @@ export default class TextMoverPlugin extends Plugin {
 				this.resetCursor(editor);
 			},
 		});
+		if (this.settings.customCommands) {
+			for (let i = 0; i < this.settings.customCommands.length; i++) {
+				const command: CustomTextMoveCommand | undefined =
+					this.settings.customCommands[i];
+				if (!command || !command.path || !command.name) {
+					new Notice('This text mover command does not exist');
+				} else {
+					this.addCommand({
+						id: command.name,
+						name: command.name,
+						editorCallback: async (
+							editor: Editor,
+							_ctx: MarkdownView | MarkdownFileInfo
+						) => {
+							if (!command) {
+								return new Notice(
+									'This text mover command does not exist'
+								);
+							}
+							if (!this.validateSelection(editor)) {
+								this.resetCursor(editor);
+								return;
+							}
+
+							// add to the file
+							await this.addToFile(editor, command);
+
+							// remove the selection from the current note
+							removeSelectionFromEditor(editor);
+
+							this.resetCursor(editor);
+							return;
+						},
+					});
+				}
+			}
+		}
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
 		this.addCommand({
 			id: 'open-modal-complex',
@@ -376,6 +416,61 @@ export default class TextMoverPlugin extends Plugin {
 		}
 	}
 
+	async addToFile(
+		editor: Editor,
+		command: CustomTextMoveCommand
+	): Promise<void> {
+		let path: string;
+		if (command.root == CustomCommandRoot.DailyNote) {
+			if (!this.appHasDailyNotesPluginLoaded()) {
+				new Notice('Please enable the daily notes plugin');
+				this.resetCursor(editor);
+				return;
+			}
+			path = this.getPathForNextDailyNote();
+		} else {
+			path = command.path!;
+		}
+
+		let file: TFile | null = this.app.vault.getFileByPath(path);
+		if (!file) {
+			return;
+		}
+		const fileContent: string = await this.app.vault.cachedRead(file);
+		const headings: Heading[] = getFileHeadings(fileContent);
+
+		let lineNumberToInsert: number = 0;
+		let lines: string[] = fileContent.split('\n');
+
+		if (!command.heading) {
+			if (command.insertLocation == InsertLocation.Prepend) {
+				lineNumberToInsert = 0;
+			} else {
+				lineNumberToInsert = lines.length;
+			}
+		} else {
+			if (command.insertLocation == InsertLocation.Prepend) {
+				lineNumberToInsert = command.heading.line + 1;
+			} else {
+				const nextHeading: Heading = getNextHeading(
+					command.heading,
+					headings
+				);
+				if (nextHeading.index == command.heading.index) {
+					lineNumberToInsert = lines.length;
+				} else {
+					lineNumberToInsert = nextHeading.line;
+				}
+			}
+		}
+		// NOTE: even if the index is out of bounds, splice will just
+		// add it to the end of the array
+		lines.splice(lineNumberToInsert, 0, editor.getSelection());
+		await this.app.vault.process(file, (_data: string) => {
+			return lines.join('\n');
+		});
+	}
+
 	appHasDailyNotesPluginLoaded(): boolean {
 		const dailyNotesPlugin =
 			this.app.internalPlugins.plugins['daily-notes'];
@@ -394,6 +489,21 @@ export default class TextMoverPlugin extends Plugin {
 			folder: this.validateString(folder).trim(),
 			template: this.validateString(template).trim(),
 		};
+	}
+
+	getPathForNextDailyNote(
+		settings?: DailyNoteSettings,
+		offset: number = 1
+	): string {
+		if (!settings) {
+			settings = this.getDailyNotesPluginSettings();
+		}
+		return normalizePath(
+			settings.folder +
+				'/' +
+				moment(Date.now()).add(offset, 'd').format(settings.format) +
+				'.md'
+		);
 	}
 
 	validateString(value: unknown): string {

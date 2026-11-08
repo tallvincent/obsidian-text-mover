@@ -29,3 +29,8 @@ export enum InsertLocation {
 	Append = 'APPEND',
 	Prepend = 'PREPEND',
 }
+
+export enum CustomCommandRoot {
+	File = 'FILE',
+	DailyNote = 'DAILY_NOTE',
+}
