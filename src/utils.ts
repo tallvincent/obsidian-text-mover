@@ -33,21 +33,21 @@ export function removeSelectionFromEditor(editor: Editor) {
 }
 
 export function getFileHeadings(fileContent: string): Heading[] {
-	let headings: Heading[] = [];
-	const regex: RegExp = /^(#{1,6})\s(.*)/gm;
-	const matches: RegExpStringIterator<RegExpExecArray> =
-		fileContent.matchAll(regex);
-	const lines: string[] = fileContent.split('\n');
-	let i = 0;
-	for (const match of matches) {
+	const headings: Heading[] = [];
+	const regex = /^[ \t]{0,3}(#{1,6})[ \t]+(.*)$/gm;
+
+	for (const match of fileContent.matchAll(regex)) {
+		const offset = match.index;
+		const line =
+			fileContent.slice(0, offset).split(/\r\n|\r|\n/).length - 1; // 1-based
+
 		headings.push({
-			index: i,
+			index: headings.length,
 			rawValue: match[0],
 			level: match[1]!.length,
 			value: match[2]!,
-			line: lines.indexOf(match[0]),
+			line,
 		});
-		i += 1;
 	}
 	return headings;
 }
