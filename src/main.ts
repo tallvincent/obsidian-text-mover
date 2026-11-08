@@ -70,15 +70,16 @@ export default class TextMoverPlugin extends Plugin {
 				const cursor: EditorPosition = editor.getCursor();
 				if (cursor.line > headings.last()!.line) {
 					headings.remove(headings.last()!);
-				}
-				for (let i = 0; i < headings.length; i++) {
-					const heading: Heading = headings[i]!;
-					if (
-						cursor.line >= heading.line &&
-						cursor.line < headings[i + 1]!.line
-					) {
-						headings.remove(heading);
-						break;
+				} else {
+					for (let i = 0; i < headings.length; i++) {
+						const heading: Heading = headings[i]!;
+						if (
+							cursor.line >= heading.line &&
+							cursor.line < headings[i + 1]!.line
+						) {
+							headings.remove(heading);
+							break;
+						}
 					}
 				}
 				// Select a heading to move to
