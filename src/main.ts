@@ -550,7 +550,7 @@ class FileSelectionModal extends FuzzySuggestModal<TFile> {
 	}
 
 	getItems(): TFile[] {
-		return this.app.vault.getFiles();
+		return this.app.vault.getMarkdownFiles();
 	}
 
 	getItemText(file: TFile): string {
