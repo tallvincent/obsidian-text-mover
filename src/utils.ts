@@ -1,42 +1,35 @@
-import { Editor, EditorSelection } from 'obsidian';
+import { Editor, EditorPosition, EditorSelection } from 'obsidian';
 import { Heading } from './types';
 
 export function removeSelectionFromEditor(editor: Editor) {
 	const editorSelections: EditorSelection[] = editor.listSelections();
 	const editorSelection: EditorSelection = editorSelections.at(0)!;
-	// Check if we need to remove the entire line up to the start of the next line
-	const selectionIsEntireLine: boolean =
-		editor.getLine(editorSelection.anchor.line) == editor.getSelection();
-	// Remove the selection from the current file
+	let from: EditorPosition = editorSelection.anchor;
+	let to: EditorPosition = editorSelection.head;
+
+	// Order positions by line and then character; character offsets alone do not
+	// order selections that span lines (especially when they end on an empty line).
 	if (
-		selectionIsEntireLine &&
-		editorSelection.anchor.ch < editorSelection.head.ch
+		from.line > to.line ||
+		(from.line === to.line && from.ch > to.ch)
 	) {
-		// NOTE: this removes the entire line even if it's the last line in the document - in that case it just leaves an empty line
-		editor.replaceRange('', editorSelection.anchor, {
-			ch: 0,
-			line: editorSelection.anchor.line + 1,
-		});
-	} else if (!selectionIsEntireLine) {
-		// NOTE: need to make sure that `from` is before `to`
-		if (editorSelection.anchor.ch < editorSelection.head.ch) {
-			editor.replaceRange(
-				'',
-				editorSelection.anchor,
-				editorSelection.head
-			);
-		} else {
-			editor.replaceRange(
-				'',
-				editorSelection.head,
-				editorSelection.anchor
-			);
-		}
+		[from, to] = [to, from];
+	}
+
+	const lineText: string = editor.getLine(from.line);
+	const selectionIsEntireLine: boolean =
+		from.line === to.line &&
+		from.ch === 0 &&
+		to.ch === lineText.length &&
+		editor.getSelection() === lineText;
+
+	if (selectionIsEntireLine && from.line < editor.lastLine()) {
+		// Remove the following line break as well so the next line takes its place.
+		editor.replaceRange('', from, { ch: 0, line: from.line + 1 });
 	} else {
-		editor.replaceRange('', editorSelection.head, {
-			ch: 0,
-			line: editorSelection.head.line + 1,
-		});
+		// Multi-line selections are removed exactly as selected, including a
+		// trailing empty line at the end of the document.
+		editor.replaceRange('', from, to);
 	}
 }
 
