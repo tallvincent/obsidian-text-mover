@@ -1,97 +1,85 @@
-# Obsidian Text Mover Plugin
+# Obsidian Text Mover
 
-This is a plugin for Obsidian (https://obsidian.md).
+This is a plugin for Obsidian (https://obsidian.md) that lets you move text from one place to another place.
+Pretty simple stuff.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+- Move text to another heading in the current note.
+- Move text to another Markdown note.
+- Move text to a daily note, either by choosing a date or by sending it to the next day's note.
+- Create custom commands for frequently used destinations, such as a specific note or tomorrow's daily note. Custom commands can target a heading and insert before or after its contents.
+- Optionally choose whether text is appended to or prepended within a heading.
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and outputs a Notice on click.
-- Registers a global interval which logs 'setInterval' to the console.
-
-## First time developing plugins?
-
-Quick starting guide for new plugin devs:
-
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `src/main.ts` to `main.js`.
-- Make changes to `src/main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
-
-## Releasing new releases
-
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
-
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+Text Mover uses Obsidian's built-in Daily Notes settings for the date format, folder, and template. The Daily Notes core plugin must be enabled to use daily-note commands.
 
 ## How to use
 
-- Clone this repo.
-- Make sure your NodeJS is at least v18 (`node --version`).
-- `npm i` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+1. Open a note and select the text you want to move. If nothing is selected, Text Mover uses the current line. Multiple selections are not supported.
+2. Open the command palette and search for a **Text Mover** command:
+   - **Move text within current document** — choose a different heading in the current note.
+   - **Move text to another document** — choose a Markdown note; the text is added at the end.
+   - **Move text to daily note** — choose a date, with suggestions for today, tomorrow, and the coming days. You can also type a day of the month, optionally followed by a month name.
+   - **Move text to next daily note** — send the text to tomorrow's daily note.
+   - Any custom commands you have created.
+3. For heading destinations, choose the matching heading. By default, text is appended to its section. To choose between inserting at the beginning or end, enable **Append and prepend** in the plugin settings.
 
-## Manually installing the plugin
+When a daily note does not exist yet, Text Mover creates it using the folder, date format, and template configured in Obsidian's Daily Notes settings. If the destination note has headings, you can choose a heading; otherwise, the text is added to the note.
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+### Create a custom command
 
-## Improve code quality with eslint
+1. Open **Settings → Community plugins → Text Mover**.
+2. Under custom commands, select **Add**.
+3. Give the command a unique name, then choose a specific file or tomorrow's daily note.
+4. For a specific file, select an optional heading. Choose whether the text should be appended or prepended, then submit.
 
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code.
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+The new command will appear in the command palette. You can remove it from the same settings page.
 
-## Run automated tests
+## Install manually
 
-- Run `npm test` to execute the command and utility tests once.
-- Run `npm run test:watch` while developing to re-run tests when files change.
+Download `main.js` and `manifest.json` from a release and place them in your vault at:
 
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-	"fundingUrl": "https://buymeacoffee.com"
-}
+```text
+<Vault>/.obsidian/plugins/text-mover/
 ```
 
-If you have multiple URLs, you can also do:
+Restart or reload Obsidian, then enable **Text Mover** under **Settings → Community plugins**. For local development, build the plugin as described below and copy the generated files into this folder.
 
-```json
-{
-	"fundingUrl": {
-		"Buy Me a Coffee": "https://buymeacoffee.com",
-		"GitHub Sponsor": "https://github.com/sponsors",
-		"Patreon": "https://www.patreon.com/"
-	}
-}
-```
+## Contributing
 
-## API Documentation
+Contributions, bug reports, and feature suggestions are welcome. For code changes:
 
-See https://docs.obsidian.md
+1. Fork the repository and create a branch for your change.
+2. Install dependencies with `npm install` (Node.js 18 or newer is recommended).
+3. Make your changes in `src/`. Run `npm run dev` to rebuild `main.js` automatically while developing.
+4. Run the checks before opening a pull request:
+
+   ```bash
+   npm test
+   npm run lint
+   npm run build
+   ```
+
+5. Test the behavior in Obsidian where practical, then open a pull request describing the change and any relevant testing.
+
+`main.js` is generated by the build and should not be committed. Keep changes focused, and add or update tests when changing behavior.
+
+## Development commands
+
+| Command | Description |
+| --- | --- |
+| `npm install` | Install development dependencies. |
+| `npm run dev` | Build in watch mode for development. |
+| `npm run build` | Type-check and create a production build. |
+| `npm test` | Run the test suite once. |
+| `npm run test:watch` | Run tests in watch mode. |
+| `npm run lint` | Lint the project. |
+
+## Releasing
+
+1. Update the version in `manifest.json` and the minimum supported Obsidian version if needed.
+2. Add the matching version-to-minimum-app-version entry to `versions.json`.
+3. Run `npm run build`.
+4. Create a GitHub release with a tag exactly matching the version in `manifest.json` (without a `v` prefix), and attach `manifest.json` and the generated `main.js`.
+
+The `npm version patch`, `npm version minor`, or `npm version major` commands can be used to bump the version; this repository's version script updates the manifest and `versions.json`.
