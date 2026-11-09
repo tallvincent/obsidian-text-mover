@@ -340,7 +340,11 @@ export default class TextMoverPlugin extends Plugin {
 		if (headings.length == 0) {
 			// TODO: if the file is empty, this is fine
 			// if there is content, we need to add a newline before the selection
-			await this.app.vault.append(file, editor.getSelection());
+			if (fileContent) {
+				await this.app.vault.append(file, '\n' + editor.getSelection());
+			} else {
+				await this.app.vault.append(file, editor.getSelection());
+			}
 			return true;
 		} else {
 			// open selector for headings with each heading duplicated for append or prepend
