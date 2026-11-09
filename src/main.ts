@@ -167,11 +167,9 @@ export default class TextMoverPlugin extends Plugin {
 
 				const currentSelection: string = editor.getSelection();
 				// Add the selection to the target file
-				void (async () => {
-					await this.app.vault.process(file, (data) => {
-						return data + '\n' + currentSelection;
-					});
-				})();
+				await this.app.vault.process(file, (data) => {
+					return data + '\n' + currentSelection;
+				});
 				removeSelectionFromEditor(editor);
 				this.resetCursor(editor);
 			},
@@ -338,8 +336,6 @@ export default class TextMoverPlugin extends Plugin {
 		const fileContent: string = await this.app.vault.cachedRead(file);
 		const headings: Heading[] = getFileHeadings(fileContent);
 		if (headings.length == 0) {
-			// TODO: if the file is empty, this is fine
-			// if there is content, we need to add a newline before the selection
 			if (fileContent) {
 				await this.app.vault.append(file, '\n' + editor.getSelection());
 			} else {
