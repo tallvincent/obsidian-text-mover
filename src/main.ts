@@ -318,19 +318,9 @@ export default class TextMoverPlugin extends Plugin {
 		path: string,
 		settings: DailyNoteSettings
 	): Promise<boolean> {
-		let file: TFile | null = this.app.vault.getFileByPath(path);
+		const file: TFile | null = await this.getDailyNoteFile(path, settings);
 		if (!file) {
-			let newFileData: string = '';
-			// get the content of the settings template
-			if (settings.template) {
-				const templatePath: string = normalizePath(settings.template);
-				const templateFile: TFile | null =
-					this.app.vault.getFileByPath(templatePath);
-				if (templateFile) {
-					newFileData = await this.app.vault.read(templateFile);
-				}
-			}
-			file = await this.app.vault.create(path, newFileData);
+			return false;
 		}
 		// get file headings
 		const fileContent: string = await this.app.vault.cachedRead(file);
@@ -380,22 +370,7 @@ export default class TextMoverPlugin extends Plugin {
 			const settings: DailyNoteSettings =
 				this.getDailyNotesPluginSettings();
 			const path: string = this.getPathForNextDailyNote(settings);
-
-			let newFileData: string = '';
-			// get the content of the settings template
-			if (settings.template) {
-				const templatePath: string = normalizePath(settings.template);
-				const templateFile: TFile | null =
-					this.app.vault.getFileByPath(templatePath);
-				if (templateFile) {
-					newFileData = await this.app.vault.read(templateFile);
-				}
-			}
-
-			file = this.app.vault.getFileByPath(path);
-			if (!file) {
-				file = await this.app.vault.create(path, newFileData);
-			}
+			file = await this.getDailyNoteFile(path, settings);
 		} else {
 			file = this.app.vault.getFileByPath(command.path!);
 		}
@@ -457,6 +432,30 @@ export default class TextMoverPlugin extends Plugin {
 			return lines.join('\n');
 		});
 		return;
+	}
+
+	async getDailyNoteFile(
+		path: string,
+		settings: DailyNoteSettings
+	): Promise<TFile | null> {
+		let file: TFile | null;
+
+		let newFileData: string = '';
+		// get the content of the settings template
+		if (settings.template) {
+			const templatePath: string = normalizePath(settings.template);
+			const templateFile: TFile | null =
+				this.app.vault.getFileByPath(templatePath);
+			if (templateFile) {
+				newFileData = await this.app.vault.read(templateFile);
+			}
+		}
+
+		file = this.app.vault.getFileByPath(path);
+		if (!file) {
+			file = await this.app.vault.create(path, newFileData);
+		}
+		return file;
 	}
 
 	appHasDailyNotesPluginLoaded(): boolean {
