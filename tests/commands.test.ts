@@ -215,19 +215,25 @@ describe('Text Mover commands', () => {
 	});
 
 	describe('move text to another document', () => {
-		it('appends the selected text to the chosen file and removes it from the source', async () => {
+		it('appends the selected text under a chosen heading and removes it from the source', async () => {
 			const { plugin, files } = await createPlugin(
 				{},
 				{
 					'Source.md': 'alpha move beta',
-					'Target.md': 'Existing content',
+					'Target.md': '# Destination\nExisting content',
 				}
 			);
 			const source = files.get('Source.md')!;
 			const target = files.get('Target.md')!;
 			const editor = new TestEditor(source.content);
 			selectText(editor, 0, 6, 10);
-			mockObsidianState.modalResults.push(target);
+			mockObsidianState.modalResults.push(target, {
+				index: 0,
+				value: 'Destination',
+				level: 1,
+				rawValue: '# Destination',
+				line: 0,
+			});
 
 			await runEditorCommand(
 				plugin,
@@ -236,7 +242,9 @@ describe('Text Mover commands', () => {
 				source
 			);
 
-			expect(target.content).toBe('Existing content\nmove');
+			expect(target.content).toBe(
+				'# Destination\nExisting content\nmove'
+			);
 			expect(editor.text).toBe('alpha  beta');
 		});
 
@@ -300,7 +308,7 @@ describe('Text Mover commands', () => {
 				{},
 				{
 					'Source.md': 'move',
-					'Target.md': 'existing',
+					'Target.md': '# Destination\nexisting',
 				}
 			);
 			const source = files.get('Source.md')!;
@@ -310,7 +318,13 @@ describe('Text Mover commands', () => {
 				{ line: 0, ch: 0 },
 				{ line: 0, ch: 4 }
 			);
-			mockObsidianState.modalResults.push(target);
+			mockObsidianState.modalResults.push(target, {
+				index: 0,
+				value: 'Destination',
+				level: 1,
+				rawValue: '# Destination',
+				line: 0,
+			});
 
 			let releaseWrite!: () => void;
 			let signalWriteStarted!: () => void;
@@ -343,7 +357,7 @@ describe('Text Mover commands', () => {
 			await writeCompleted;
 
 			expect(sourceWhileWriteIsPending).toBe('move');
-			expect(target.content).toBe('existing\nmove');
+			expect(target.content).toBe('# Destination\nexisting\nmove');
 		});
 	});
 
@@ -425,6 +439,35 @@ describe('Text Mover commands', () => {
 			expect(files.get('Daily/2024-01-02.md')?.content).toBe(
 				'# Tomorrow\nexisting'
 			);
+		});
+
+		it('deletes a newly created next daily note when heading selection is canceled', async () => {
+			const { plugin, app, files, dailyNotes } = await createPlugin(
+				{},
+				{ 'Source.md': 'task', 'Template.md': '# Daily heading' }
+			);
+			dailyNotes.instance.options.template = 'Template.md';
+			const trashFile = vi.spyOn(app.fileManager, 'trashFile');
+			const source = files.get('Source.md')!;
+			const editor = new TestEditor(
+				source.content,
+				{ line: 0, ch: 0 },
+				{ line: 0, ch: 4 }
+			);
+			mockObsidianState.modalResults.push(null);
+
+			await runEditorCommand(
+				plugin,
+				'move-text-to-next-daily-note',
+				editor,
+				source
+			);
+
+			expect(trashFile).toHaveBeenCalledWith(
+				expect.objectContaining({ path: 'Daily/2024-01-02.md' })
+			);
+			expect(files.has('Daily/2024-01-02.md')).toBe(false);
+			expect(editor.text).toBe('task');
 		});
 
 		it('separates appended text from existing heading-free daily-note content', async () => {
@@ -596,6 +639,38 @@ describe('Text Mover commands', () => {
 			expect(files.get('Daily/2030-03-12.md')?.content).toBe('task');
 			expect(files.has('Daily/2024-01-02.md')).toBe(false);
 			expect(editor.text).toBe('');
+		});
+
+		it('deletes a newly created specific daily note when heading selection is canceled', async () => {
+			const { plugin, app, files, dailyNotes } = await createPlugin(
+				{},
+				{ 'Source.md': 'task', 'Template.md': '# Daily heading' }
+			);
+			dailyNotes.instance.options.template = 'Template.md';
+			const trashFile = vi.spyOn(app.fileManager, 'trashFile');
+			const source = files.get('Source.md')!;
+			const editor = new TestEditor(
+				source.content,
+				{ line: 0, ch: 0 },
+				{ line: 0, ch: 4 }
+			);
+			mockObsidianState.modalResults.push(
+				{ display: '12th March 2030', value: '2030-03-12' },
+				null
+			);
+
+			await runEditorCommand(
+				plugin,
+				'move-text-to-daily-note',
+				editor,
+				source
+			);
+
+			expect(trashFile).toHaveBeenCalledWith(
+				expect.objectContaining({ path: 'Daily/2030-03-12.md' })
+			);
+			expect(files.has('Daily/2030-03-12.md')).toBe(false);
+			expect(editor.text).toBe('task');
 		});
 
 		it('leaves the source unchanged when date selection is canceled', async () => {

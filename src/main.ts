@@ -165,11 +165,42 @@ export default class TextMoverPlugin extends Plugin {
 					return;
 				}
 
-				const currentSelection: string = editor.getSelection();
-				// Add the selection to the target file
-				await this.app.vault.process(file, (data) => {
-					return data + '\n' + currentSelection;
-				});
+				const fileContent: string =
+					await this.app.vault.cachedRead(file);
+				const headings: Heading[] = getFileHeadings(fileContent);
+				if (headings.length == 0) {
+					if (fileContent) {
+						await this.app.vault.append(
+							file,
+							'\n' + editor.getSelection()
+						);
+					} else {
+						await this.app.vault.append(
+							file,
+							editor.getSelection()
+						);
+					}
+				} else {
+					// open selector for headings with each heading duplicated for append or prepend
+					const heading: Heading | null =
+						await new HeadingSelectionModal(
+							this.app,
+							headings,
+							this.settings.appendAndPrepend
+						).pick();
+					if (!heading) {
+						this.resetCursor(editor);
+						return;
+					}
+					await this.addContentToHeading(
+						heading,
+						heading.insertLocation!,
+						editor.getSelection(),
+						file,
+						headings
+					);
+				}
+
 				removeSelectionFromEditor(editor);
 				this.resetCursor(editor);
 			},

@@ -56,6 +56,11 @@ export function createApp(initialFiles: Record<string, string> = {}) {
 				file.content = transform(file.content);
 			},
 		},
+		fileManager: {
+			trashFile: async (file: TestFile) => {
+				files.delete(file.path);
+			},
+		},
 		workspace: {
 			activeView: null as unknown,
 			getActiveViewOfType() {
