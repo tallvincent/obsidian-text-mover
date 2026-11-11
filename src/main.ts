@@ -417,6 +417,10 @@ export default class TextMoverPlugin extends Plugin {
 			return false;
 		}
 		const fileContent: string = await this.app.vault.cachedRead(file);
+		if (!fileContent) {
+			await this.app.vault.append(file, editor.getSelection());
+			return true;
+		}
 		const headings: Heading[] = getFileHeadings(fileContent);
 
 		let lineNumberToInsert: number = 0;

@@ -589,6 +589,34 @@ describe('Text Mover commands', () => {
 			expect(editor.text).toBe('');
 		});
 
+		it('moves text to a new daily note when no template file is configured', async () => {
+			const customCommand = {
+				id: 'move-to-daily-without-template',
+				name: 'Move to daily without template',
+				path: 'placeholder.md',
+				root: CustomCommandRoot.DailyNote,
+				insertLocation: InsertLocation.Append,
+			};
+			const { plugin, files, dailyNotes } = await createPlugin(
+				{ customCommands: [customCommand] },
+				{ 'Source.md': 'task' }
+			);
+			dailyNotes.instance.options.template = '';
+			const source = files.get('Source.md')!;
+			const editor = new TestEditor(
+				source.content,
+				{ line: 0, ch: 0 },
+				{ line: 0, ch: 4 }
+			);
+
+			await runEditorCommand(plugin, customCommand.id, editor, source);
+
+			const destination = files.get('Daily/2024-01-02.md');
+			expect(destination?.content).toBe('task');
+			expect(files.has('Template.md')).toBe(false);
+			expect(editor.text).toBe('');
+		});
+
 		it('adds to an existing note for a daily-note custom command', async () => {
 			const customCommand = {
 				id: 'move-to-daily',
@@ -650,7 +678,7 @@ describe('Text Mover commands', () => {
 			expect(editor.text).toBe('task');
 		});
 
-		it('preserves the source when the configured destination file is missing', async () => {
+		it('does not remove source text when the custom destination file is missing', async () => {
 			const customCommand = {
 				id: 'move-to-missing-file',
 				name: 'Move to missing file',
@@ -672,6 +700,7 @@ describe('Text Mover commands', () => {
 			await runEditorCommand(plugin, customCommand.id, editor, source);
 
 			expect(editor.text).toBe('task');
+			expect(files.has('Missing.md')).toBe(false);
 		});
 
 		it('inserts text under the configured heading rather than at file level', async () => {

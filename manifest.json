@@ -3,7 +3,7 @@
 	"name": "Text Mover",
 	"version": "1.0.0",
 	"minAppVersion": "1.13.0",
-	"description": "Move text from one file to another.",
+	"description": "Move text from one place to another.",
 	"author": "tallvincent",
 	"authorUrl": "https://tallvincent.com",
 	"isDesktopOnly": false
