@@ -167,9 +167,10 @@ class AddCustomCommandModal extends Modal {
 				return dropdown
 					.addOptions(this.headingOptions)
 					.onChange(async (value) => {
-						const heading: Heading =
-							this.headings[parseInt(value)]!;
-						this.command.heading = heading;
+						this.command.heading =
+							value === 'none'
+								? undefined
+								: this.headings[parseInt(value)];
 					});
 			});
 
@@ -218,52 +219,48 @@ class AddCustomCommandModal extends Modal {
 	}
 
 	private async updateHeadingOptions(selectedFilePath?: string) {
+		this.headings = [];
+		this.headingOptions = { ...this.defaultHeadingOptions };
+		this.command.heading = undefined;
 		if (selectedFilePath) {
 			const file: TFile | null =
 				this.app.vault.getFileByPath(selectedFilePath);
-			if (!file) {
-				return;
+			if (file) {
+				this.command.path = selectedFilePath;
+				const fileContent: string =
+					await this.app.vault.cachedRead(file);
+				this.headings = getFileHeadings(fileContent);
+				this.headingOptions = {
+					...this.headingOptions,
+					...this.headings.reduce(
+						(acc, key) => {
+							return {
+								...acc,
+								[key.index]: key.rawValue,
+							};
+						},
+						{} as Record<string, string>
+					),
+				};
 			}
-			this.command.path = selectedFilePath;
-			const fileContent: string = await this.app.vault.cachedRead(file);
-			this.headings = getFileHeadings(fileContent);
-			this.headingOptions = {
-				...this.headingOptions,
-				...this.headings.reduce(
-					(acc, key) => {
-						return {
-							...acc,
-							[key.index]: key.rawValue,
-						};
-					},
-					{} as Record<string, string>
-				),
-			};
 		}
 		// Remove the old choices, then populate the dependent dropdown.
 		this.headingDropdown.selectEl.replaceChildren();
 		this.headingDropdown.addOptions(this.headingOptions);
 
-		// get the 'no heading' option by default
-		const firstValue = Object.keys(this.headingOptions).last();
-		this.headingDropdown.setValue(firstValue ?? '');
+		// Use file contents by default unless the user explicitly selects a heading.
+		this.headingDropdown.setValue('none');
 	}
 
 	private updateSubmitButton() {
 		this.submitButton.buttonEl.replaceChildren();
-		let disabled: boolean = true;
-		if (
-			this.command.path &&
-			this.nameIsValid(this.command.name) &&
-			this.pathIsValid(this.command.path)
-		) {
-			disabled = false;
-		} else if (
-			this.command.root == CustomCommandRoot.DailyNote &&
+		const validName = this.nameIsValid(this.command.name);
+		const validTarget =
+			this.command.root === CustomCommandRoot.DailyNote &&
 			!this.dailyNotesPluginSettings.template
-		) {
-			disabled = false;
-		}
+				? true
+				: !!this.command.path && this.pathIsValid(this.command.path);
+		const disabled = !(validName && validTarget);
 		this.submitButton.setDisabled(disabled);
 		this.submitButton.setButtonText('Submit');
 	}
@@ -284,14 +281,14 @@ class AddCustomCommandModal extends Modal {
 		if (!name) {
 			return '';
 		}
-		return name?.toLowerCase().replace(' ', '-');
+		return name.trim().toLowerCase().replace(/\s+/g, '-');
 	}
 
 	private nameIsValid(name?: string): boolean {
 		if (!name) {
 			return false;
 		}
-		if (!/^[a-zA-Z0-9\s]*$/.test(name)) {
+		if (!/^[a-zA-Z0-9]+(?:\s+[a-zA-Z0-9]+)*$/.test(name)) {
 			return false;
 		}
 		return this.idIsValid(this.nameToId(name));
@@ -304,7 +301,7 @@ class AddCustomCommandModal extends Modal {
 		const duplicateId = this.plugin.settings.customCommands
 			?.map(({ id }) => id)
 			.includes(id);
-		return /^[a-zA-Z0-9-\s]*$/.test(id) && !duplicateId;
+		return /^[a-zA-Z0-9-]+$/.test(id) && !duplicateId;
 	}
 }
 

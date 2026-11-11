@@ -2,7 +2,28 @@ export const mockObsidianState = {
 	modalResults: [] as unknown[],
 	modalItems: [] as unknown[][],
 	notices: [] as string[],
+	openModals: [] as Modal[],
 };
+
+class MockElement {
+	settings: Setting[] = [];
+	children: unknown[] = [];
+	value = '';
+	private onReplace?: () => void;
+
+	constructor(onReplace?: () => void) {
+		this.onReplace = onReplace;
+	}
+
+	replaceChildren(...children: unknown[]) {
+		this.children = children;
+		this.onReplace?.();
+	}
+
+	dispatchEvent(_event: Event) {
+		return true;
+	}
+}
 
 declare global {
 	interface Array<T> {
@@ -97,6 +118,8 @@ export class PluginSettingTab {
 		public app: unknown,
 		public plugin: unknown
 	) {}
+
+	update() {}
 }
 
 export class AbstractInputSuggest<T> {
@@ -106,11 +129,182 @@ export class AbstractInputSuggest<T> {
 	) {}
 
 	protected suggestionType?: T;
+
+	close() {}
 }
 
-export class Setting {}
+export class Setting {
+	name = '';
+	text?: TextComponent;
+	dropdown?: DropdownComponent;
+	search?: SearchComponent;
+	button?: ButtonComponent;
 
-export class Modal {}
+	constructor(private contentEl: MockElement) {
+		contentEl.settings.push(this);
+	}
+
+	setName(name: string) {
+		this.name = name;
+		return this;
+	}
+
+	setDesc(_description: string) {
+		return this;
+	}
+
+	addText(callback: (component: TextComponent) => unknown) {
+		this.text = new TextComponent();
+		callback(this.text);
+		return this;
+	}
+
+	addDropdown(callback: (component: DropdownComponent) => unknown) {
+		this.dropdown = new DropdownComponent();
+		callback(this.dropdown);
+		return this;
+	}
+
+	addSearch(callback: (component: SearchComponent) => unknown) {
+		this.search = new SearchComponent();
+		void callback(this.search);
+		return this;
+	}
+
+	addButton(callback: (component: ButtonComponent) => unknown) {
+		this.button = new ButtonComponent();
+		callback(this.button);
+		return this;
+	}
+}
+
+export class TextComponent {
+	private changeCallback?: (value: string) => unknown;
+	placeholder = '';
+
+	setPlaceholder(value: string) {
+		this.placeholder = value;
+		return this;
+	}
+
+	onChange(callback: (value: string) => unknown) {
+		this.changeCallback = callback;
+		return this;
+	}
+
+	change(value: string) {
+		return this.changeCallback?.(value);
+	}
+}
+
+export class DropdownComponent {
+	selectEl = new MockElement(() => {
+		this.options = {};
+	});
+	options: Record<string, string> = {};
+	value = '';
+	private changeCallback?: (value: string) => unknown;
+
+	addOptions(options: Record<string, string>) {
+		this.options = { ...this.options, ...options };
+		return this;
+	}
+
+	onChange(callback: (value: string) => unknown) {
+		this.changeCallback = callback;
+		return this;
+	}
+
+	setValue(value: string) {
+		this.value = value;
+		return this;
+	}
+
+	change(value: string) {
+		this.value = value;
+		return this.changeCallback?.(value);
+	}
+}
+
+export class SearchComponent {
+	inputEl = new MockElement();
+	disabled = false;
+	private changeCallback?: (value: string) => unknown;
+
+	onChange(callback: (value: string) => unknown) {
+		this.changeCallback = callback;
+		return this;
+	}
+
+	setValue(value: string) {
+		this.inputEl.value = value;
+		return this;
+	}
+
+	setDisabled(disabled: boolean) {
+		this.disabled = disabled;
+		return this;
+	}
+
+	change(value: string) {
+		this.inputEl.value = value;
+		return this.changeCallback?.(value);
+	}
+}
+
+export class ButtonComponent {
+	buttonEl = new MockElement();
+	disabled = false;
+	text = '';
+	private clickCallback?: () => unknown;
+
+	setButtonText(text: string) {
+		this.text = text;
+		return this;
+	}
+
+	setCta() {
+		return this;
+	}
+
+	setDisabled(disabled: boolean) {
+		this.disabled = disabled;
+		return this;
+	}
+
+	onClick(callback: () => unknown) {
+		this.clickCallback = callback;
+		return this;
+	}
+
+	click() {
+		if (!this.disabled) return this.clickCallback?.();
+		return undefined;
+	}
+}
+
+export class Modal {
+	contentEl = new MockElement();
+	title = '';
+	closed = false;
+	app: unknown;
+
+	constructor(app?: unknown) {
+		this.app = app;
+	}
+
+	setTitle(title: string) {
+		this.title = title;
+	}
+
+	open() {
+		mockObsidianState.openModals.push(this);
+	}
+
+	close() {
+		this.closed = true;
+	}
+}
 
 export class MarkdownView {}
 
@@ -169,7 +363,10 @@ export function moment(input: string | number | Date) {
 				M: String(date.getMonth() + 1),
 				dddd: dayNames[date.getDay()]!,
 			};
-			return format.replace(/YYYY|MMMM|MMM|MM|DD|M|dddd/g, (token) => values[token]!);
+			return format.replace(
+				/YYYY|MMMM|MMM|MM|DD|M|dddd/g,
+				(token) => values[token]!
+			);
 		},
 	};
 }
