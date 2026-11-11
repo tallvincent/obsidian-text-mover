@@ -355,26 +355,13 @@ export default class TextMoverPlugin extends Plugin {
 				this.resetCursor(editor);
 				return false;
 			}
-			let lineNumberToInsert: number = 0;
-			let lines: string[] = fileContent.split('\n');
-
-			if (heading.insertLocation == InsertLocation.Prepend) {
-				lineNumberToInsert = heading.line + 1;
-			} else {
-				const nextHeading: Heading = getNextHeading(heading, headings);
-				if (nextHeading.index == heading.index) {
-					lineNumberToInsert = lines.length;
-				} else {
-					lineNumberToInsert = nextHeading.line;
-				}
-			}
-
-			// NOTE: even if the index is out of bounds, splice will just
-			// add it to the end of the array
-			lines.splice(lineNumberToInsert, 0, editor.getSelection());
-			await this.app.vault.process(file, (_data: string) => {
-				return lines.join('\n');
-			});
+			await this.addContentToHeading(
+				heading,
+				heading.insertLocation!,
+				editor.getSelection(),
+				file,
+				headings
+			);
 			return true;
 		}
 	}
@@ -416,31 +403,47 @@ export default class TextMoverPlugin extends Plugin {
 		if (!file) {
 			return false;
 		}
+
+		await this.addContentToHeading(
+			command.heading,
+			command.insertLocation,
+			editor.getSelection(),
+			file
+		);
+		return true;
+	}
+
+	async addContentToHeading(
+		heading: Heading | undefined,
+		insertLocation: InsertLocation,
+		content: string,
+		file: TFile,
+		headings?: Heading[]
+	) {
 		const fileContent: string = await this.app.vault.cachedRead(file);
 		if (!fileContent) {
-			await this.app.vault.append(file, editor.getSelection());
-			return true;
+			await this.app.vault.append(file, content);
+			return;
 		}
-		const headings: Heading[] = getFileHeadings(fileContent);
+		if (!headings) {
+			headings = getFileHeadings(fileContent);
+		}
 
 		let lineNumberToInsert: number = 0;
 		let lines: string[] = fileContent.split('\n');
 
-		if (!command.heading || !headingInHeadings(command.heading, headings)) {
-			if (command.insertLocation == InsertLocation.Prepend) {
+		if (!heading || !headingInHeadings(heading, headings)) {
+			if (insertLocation == InsertLocation.Prepend) {
 				lineNumberToInsert = 0;
 			} else {
 				lineNumberToInsert = lines.length;
 			}
 		} else {
-			if (command.insertLocation == InsertLocation.Prepend) {
-				lineNumberToInsert = command.heading.line + 1;
+			if (insertLocation == InsertLocation.Prepend) {
+				lineNumberToInsert = heading.line + 1;
 			} else {
-				const nextHeading: Heading = getNextHeading(
-					command.heading,
-					headings
-				);
-				if (nextHeading.index == command.heading.index) {
+				const nextHeading: Heading = getNextHeading(heading, headings);
+				if (nextHeading.index == heading.index) {
 					lineNumberToInsert = lines.length;
 				} else {
 					lineNumberToInsert = nextHeading.line;
@@ -449,12 +452,11 @@ export default class TextMoverPlugin extends Plugin {
 		}
 		// NOTE: even if the index is out of bounds, splice will just
 		// add it to the end of the array
-		lines.splice(lineNumberToInsert, 0, editor.getSelection());
+		lines.splice(lineNumberToInsert, 0, content);
 		await this.app.vault.process(file, (_data: string) => {
 			return lines.join('\n');
 		});
-
-		return true;
+		return;
 	}
 
 	appHasDailyNotesPluginLoaded(): boolean {
