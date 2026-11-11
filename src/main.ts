@@ -310,7 +310,6 @@ export default class TextMoverPlugin extends Plugin {
 			{ ch: currentLine.length, line: currentLineNumber }
 		);
 		return true;
-		// TODO: what about when the editor position is somewhere weird like in frontmatter?
 	}
 
 	async addToDailyNote(
