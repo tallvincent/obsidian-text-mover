@@ -19,6 +19,7 @@ import {
 	InsertLocation,
 } from './types';
 import { capitalizeFirstLetter, getFileHeadings } from './utils';
+import { Notice } from '../tests/mocks/obsidian';
 
 export interface CustomTextMoveCommand {
 	id?: string;
@@ -89,6 +90,7 @@ class AddCustomCommandModal extends Modal {
 		root: CustomCommandRoot.File,
 		insertLocation: InsertLocation.Append,
 	};
+	private dailyNotesPluginSettings: DailyNoteSettings;
 
 	constructor(
 		app: App,
@@ -98,6 +100,7 @@ class AddCustomCommandModal extends Modal {
 		super(app);
 		this.plugin = plugin;
 		this.setTitle('Configure a new custom command');
+		this.dailyNotesPluginSettings = plugin.getDailyNotesPluginSettings();
 
 		new Setting(this.contentEl)
 			.setName('Name')
@@ -200,12 +203,17 @@ class AddCustomCommandModal extends Modal {
 
 	private async dailyNoteRootSelected() {
 		if (this.plugin.appHasDailyNotesPluginLoaded()) {
-			const settings: DailyNoteSettings =
-				this.plugin.getDailyNotesPluginSettings();
-			if (settings.template) {
-				const path = normalizePath(settings.template);
+			let path: string = '';
+			if (this.dailyNotesPluginSettings.template) {
+				path = normalizePath(this.dailyNotesPluginSettings.template);
 				await this.updateHeadingOptions(path);
 			}
+			this.command.path = path;
+		} else {
+			new Notice(
+				'Please enable the daily notes plugin to use this commmand type'
+			);
+			this.command.root = CustomCommandRoot.File;
 		}
 	}
 
@@ -243,12 +251,20 @@ class AddCustomCommandModal extends Modal {
 
 	private updateSubmitButton() {
 		this.submitButton.buttonEl.replaceChildren();
-		// true when path is '' or name is ''
-		this.submitButton.setDisabled(
-			!this.command.path ||
-				!this.nameIsValid(this.command.name) ||
-				!this.pathIsValid(this.command.path)
-		);
+		let disabled: boolean = true;
+		if (
+			this.command.path &&
+			this.nameIsValid(this.command.name) &&
+			this.pathIsValid(this.command.path)
+		) {
+			disabled = false;
+		} else if (
+			this.command.root == CustomCommandRoot.DailyNote &&
+			!this.dailyNotesPluginSettings.template
+		) {
+			disabled = false;
+		}
+		this.submitButton.setDisabled(disabled);
 		this.submitButton.setButtonText('Submit');
 	}
 
