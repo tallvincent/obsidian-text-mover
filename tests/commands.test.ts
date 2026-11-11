@@ -25,6 +25,8 @@ type RegisteredCommand = {
 	checkCallback?: (checking: boolean) => boolean;
 };
 
+type DateSuggestion = { display: string; value: string };
+
 async function createPlugin(
 	data: Record<string, unknown> = {},
 	initialFiles: Record<string, string> = {}
@@ -59,6 +61,23 @@ async function runEditorCommand(
 		editor as unknown as Editor,
 		{ file } as unknown as MarkdownFileInfo
 	);
+}
+
+async function queryDateSuggestions(
+	plugin: TextMoverPlugin,
+	files: Map<string, TestFile>,
+	query: string
+): Promise<DateSuggestion[]> {
+	const source = files.get('Source.md')!;
+	const editor = new TestEditor(
+		source.content,
+		{ line: 0, ch: 0 },
+		{ line: 0, ch: source.content.length }
+	);
+	mockObsidianState.suggestionQueries.push(query);
+	mockObsidianState.modalResults.push(null);
+	await runEditorCommand(plugin, 'move-text-to-daily-note', editor, source);
+	return mockObsidianState.suggestionItems.at(-1) as DateSuggestion[];
 }
 
 function selectText(
@@ -437,6 +456,120 @@ describe('Text Mover commands', () => {
 	});
 
 	describe('move text to a selected daily note', () => {
+		it('shows today and the next six days for an empty query', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+
+			const suggestions = await queryDateSuggestions(plugin, files, '');
+
+			expect(suggestions).toEqual([
+				{ display: 'Today', value: '2024-01-01' },
+				{ display: 'Tomorrow', value: '2024-01-02' },
+				{ display: 'Wednesday', value: '2024-01-03' },
+				{ display: 'Thursday', value: '2024-01-04' },
+				{ display: 'Friday', value: '2024-01-05' },
+				{ display: 'Saturday', value: '2024-01-06' },
+				{ display: 'Sunday', value: '2024-01-07' },
+			]);
+		});
+
+		it('filters the default suggestions by their displayed names', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+
+			const suggestions = await queryDateSuggestions(plugin, files, 'wed');
+
+			expect(suggestions).toEqual([
+				{ display: 'Wednesday', value: '2024-01-03' },
+			]);
+		});
+
+		it('suggests the entered day across the next 12 months', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+
+			const suggestions = await queryDateSuggestions(plugin, files, '12');
+
+			expect(suggestions.map(({ value }) => value)).toEqual([
+				'2024-01-12',
+				'2024-02-12',
+				'2024-03-12',
+				'2024-04-12',
+				'2024-05-12',
+				'2024-06-12',
+				'2024-07-12',
+				'2024-08-12',
+				'2024-09-12',
+				'2024-10-12',
+				'2024-11-12',
+				'2024-12-12',
+			]);
+		});
+
+		it('matches a day number and partial month across the upcoming year', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+
+			const suggestions = await queryDateSuggestions(plugin, files, '12 mar');
+
+			expect(suggestions).toEqual([
+				{ display: '12th March 2024', value: '2024-03-12' },
+			]);
+		});
+
+		it('does not use a typed year to choose the suggestion year', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+
+			const suggestions = await queryDateSuggestions(
+				plugin,
+				files,
+				'12 mar 2030'
+			);
+
+			expect(suggestions).toEqual([
+				{ display: '12th March 2024', value: '2024-03-12' },
+			]);
+		});
+
+		it('omits invalid calendar dates', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+
+			const suggestions = await queryDateSuggestions(plugin, files, '31 feb');
+
+			expect(suggestions).toEqual([]);
+		});
+
+		it('shows suggestions using the configured daily-note date format', async () => {
+			const { plugin, app, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+			app.internalPlugins.getPluginById(
+				'daily-notes'
+			).instance.options.format = 'MMMM DD, YYYY';
+
+			const suggestions = await queryDateSuggestions(plugin, files, '');
+
+			expect(suggestions[0]).toEqual({
+				display: 'Today',
+				value: 'January 01, 2024',
+			});
+		});
+
 		it('uses the selected date rather than tomorrow', async () => {
 			const { plugin, files } = await createPlugin(
 				{},

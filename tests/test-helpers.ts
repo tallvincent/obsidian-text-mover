@@ -161,6 +161,8 @@ export class TestEditor {
 export function resetTestState() {
 	mockObsidianState.modalResults.length = 0;
 	mockObsidianState.modalItems.length = 0;
+	mockObsidianState.suggestionQueries.length = 0;
+	mockObsidianState.suggestionItems.length = 0;
 	mockObsidianState.notices.length = 0;
 	mockObsidianState.openModals.length = 0;
 }

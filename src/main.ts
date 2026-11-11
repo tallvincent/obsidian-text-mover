@@ -310,7 +310,7 @@ export default class TextMoverPlugin extends Plugin {
 			{ ch: currentLine.length, line: currentLineNumber }
 		);
 		return true;
-		// FIXME: what about when the editor position is somewhere weird like in frontmatter?
+		// TODO: what about when the editor position is somewhere weird like in frontmatter?
 	}
 
 	async addToDailyNote(
@@ -379,7 +379,7 @@ export default class TextMoverPlugin extends Plugin {
 		}
 	}
 
-	async addToFile(
+	async executeCustomCommand(
 		editor: Editor,
 		command: CustomTextMoveCommand
 	): Promise<boolean> {
@@ -521,7 +521,7 @@ export default class TextMoverPlugin extends Plugin {
 				}
 
 				// add to the file
-				if (await this.addToFile(editor, command)) {
+				if (await this.executeCustomCommand(editor, command)) {
 					// remove the selection from the current note
 					removeSelectionFromEditor(editor);
 				}

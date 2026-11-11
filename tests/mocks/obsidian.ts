@@ -1,6 +1,8 @@
 export const mockObsidianState = {
 	modalResults: [] as unknown[],
 	modalItems: [] as unknown[][],
+	suggestionQueries: [] as string[],
+	suggestionItems: [] as unknown[][],
 	notices: [] as string[],
 	openModals: [] as Modal[],
 };
@@ -105,6 +107,13 @@ export class SuggestModal<T> {
 	open() {
 		const result = mockObsidianState.modalResults.shift();
 		const callbacks = this as unknown as ModalCallbacks<T>;
+		const modal = this as unknown as {
+			getSuggestions?: (query: string) => T[];
+		};
+		const query = mockObsidianState.suggestionQueries.shift() ?? '';
+		mockObsidianState.suggestionItems.push(
+			modal.getSuggestions?.(query) ?? []
+		);
 		if (result == null) {
 			callbacks.onClose?.();
 		} else {
@@ -323,13 +332,35 @@ export function normalizePath(path: string) {
 
 export function renderResults() {}
 
-export function moment(input: string | number | Date) {
+interface MockMoment {
+	add(amount: number, unit: string): MockMoment;
+	month(): number;
+	month(value: number): MockMoment;
+	date(): number;
+	date(value: number): MockMoment;
+	format(format?: string): string;
+}
+
+export function moment(input: string | number | Date): MockMoment {
 	const date = new Date(input);
-	return {
+	let result: MockMoment;
+	const month = ((value?: number) => {
+		if (value === undefined) return date.getMonth();
+		date.setMonth(value);
+		return result;
+	}) as MockMoment['month'];
+	const dayOfMonth = ((value?: number) => {
+		if (value === undefined) return date.getDate();
+		date.setDate(value);
+		return result;
+	}) as MockMoment['date'];
+	result = {
 		add(amount: number, unit: string) {
 			if (unit === 'd') date.setDate(date.getDate() + amount);
 			return this;
 		},
+		month,
+		date: dayOfMonth,
 		format(format = 'YYYY-MM-DD') {
 			const dayNames = [
 				'Sunday',
@@ -358,15 +389,25 @@ export function moment(input: string | number | Date) {
 				YYYY: String(date.getFullYear()),
 				MMMM: monthNames[date.getMonth()]!,
 				MMM: monthNames[date.getMonth()]!.slice(0, 3),
+				Do: `${date.getDate()}${
+					date.getDate() % 10 === 1 && date.getDate() !== 11
+						? 'st'
+						: date.getDate() % 10 === 2 && date.getDate() !== 12
+							? 'nd'
+							: date.getDate() % 10 === 3 && date.getDate() !== 13
+								? 'rd'
+								: 'th'
+				}`,
 				MM: String(date.getMonth() + 1).padStart(2, '0'),
 				DD: String(date.getDate()).padStart(2, '0'),
 				M: String(date.getMonth() + 1),
 				dddd: dayNames[date.getDay()]!,
 			};
 			return format.replace(
-				/YYYY|MMMM|MMM|MM|DD|M|dddd/g,
+				/YYYY|MMMM|MMM|Do|MM|DD|M|dddd/g,
 				(token) => values[token]!
 			);
 		},
 	};
+	return result;
 }
