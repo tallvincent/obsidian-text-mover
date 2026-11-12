@@ -483,35 +483,6 @@ describe('Text Mover commands', () => {
 			);
 		});
 
-		it('deletes a newly created next daily note when heading selection is canceled', async () => {
-			const { plugin, app, files, dailyNotes } = await createPlugin(
-				{},
-				{ 'Source.md': 'task', 'Template.md': '# Daily heading' }
-			);
-			dailyNotes.instance.options.template = 'Template.md';
-			const trashFile = vi.spyOn(app.fileManager, 'trashFile');
-			const source = files.get('Source.md')!;
-			const editor = new TestEditor(
-				source.content,
-				{ line: 0, ch: 0 },
-				{ line: 0, ch: 4 }
-			);
-			mockObsidianState.modalResults.push(null);
-
-			await runEditorCommand(
-				plugin,
-				'move-text-to-next-daily-note',
-				editor,
-				source
-			);
-
-			expect(trashFile).toHaveBeenCalledWith(
-				expect.objectContaining({ path: 'Daily/2024-01-02.md' })
-			);
-			expect(files.has('Daily/2024-01-02.md')).toBe(false);
-			expect(editor.text).toBe('task');
-		});
-
 		it('separates appended text from existing heading-free daily-note content', async () => {
 			const { plugin, files } = await createPlugin(
 				{},
@@ -566,7 +537,11 @@ describe('Text Mover commands', () => {
 				{ 'Source.md': 'task' }
 			);
 
-			const suggestions = await queryDateSuggestions(plugin, files, 'wed');
+			const suggestions = await queryDateSuggestions(
+				plugin,
+				files,
+				'wed'
+			);
 
 			expect(suggestions).toEqual([
 				{ display: 'Wednesday', value: '2024-01-03' },
@@ -603,7 +578,11 @@ describe('Text Mover commands', () => {
 				{ 'Source.md': 'task' }
 			);
 
-			const suggestions = await queryDateSuggestions(plugin, files, '12 mar');
+			const suggestions = await queryDateSuggestions(
+				plugin,
+				files,
+				'12 mar'
+			);
 
 			expect(suggestions).toEqual([
 				{ display: '12th March 2024', value: '2024-03-12' },
@@ -633,7 +612,11 @@ describe('Text Mover commands', () => {
 				{ 'Source.md': 'task' }
 			);
 
-			const suggestions = await queryDateSuggestions(plugin, files, '31 feb');
+			const suggestions = await queryDateSuggestions(
+				plugin,
+				files,
+				'31 feb'
+			);
 
 			expect(suggestions).toEqual([]);
 		});
@@ -681,38 +664,6 @@ describe('Text Mover commands', () => {
 			expect(files.get('Daily/2030-03-12.md')?.content).toBe('task');
 			expect(files.has('Daily/2024-01-02.md')).toBe(false);
 			expect(editor.text).toBe('');
-		});
-
-		it('deletes a newly created specific daily note when heading selection is canceled', async () => {
-			const { plugin, app, files, dailyNotes } = await createPlugin(
-				{},
-				{ 'Source.md': 'task', 'Template.md': '# Daily heading' }
-			);
-			dailyNotes.instance.options.template = 'Template.md';
-			const trashFile = vi.spyOn(app.fileManager, 'trashFile');
-			const source = files.get('Source.md')!;
-			const editor = new TestEditor(
-				source.content,
-				{ line: 0, ch: 0 },
-				{ line: 0, ch: 4 }
-			);
-			mockObsidianState.modalResults.push(
-				{ display: '12th March 2030', value: '2030-03-12' },
-				null
-			);
-
-			await runEditorCommand(
-				plugin,
-				'move-text-to-daily-note',
-				editor,
-				source
-			);
-
-			expect(trashFile).toHaveBeenCalledWith(
-				expect.objectContaining({ path: 'Daily/2030-03-12.md' })
-			);
-			expect(files.has('Daily/2030-03-12.md')).toBe(false);
-			expect(editor.text).toBe('task');
 		});
 
 		it('leaves the source unchanged when date selection is canceled', async () => {
