@@ -708,6 +708,11 @@ describe('Text Mover commands', () => {
 				value: 'March 20, 2030',
 				path: 'Daily/March 20, 2030.md',
 			},
+			{
+				format: 'YYYY/MM/DD-MM-YYYY',
+				value: '2030/03/20-2030',
+				path: 'Daily/2030/03/20-2030.md',
+			},
 		])(
 			'uses a selected date with format $format',
 			async ({ format, value, path }) => {

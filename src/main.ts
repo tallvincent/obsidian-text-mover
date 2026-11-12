@@ -226,6 +226,8 @@ export default class TextMoverPlugin extends Plugin {
 				const settings: DailyNoteSettings =
 					this.getDailyNotesPluginSettings();
 				const path: string = this.getPathForNextDailyNote(settings);
+				// TODO: can we have a callback that deletes the file after checking
+				// if it's a newly created file?
 				if (await this.addToDailyNote(editor, path, settings)) {
 					// remove the selection from the current note
 					removeSelectionFromEditor(editor);
@@ -269,7 +271,7 @@ export default class TextMoverPlugin extends Plugin {
 				const path: string = normalizePath(
 					settings.folder +
 						'/' +
-						moment(selectedDate.value).format(settings.format) +
+						selectedDate.value +
 						'.md'
 				);
 				if (await this.addToDailyNote(editor, path, settings)) {
