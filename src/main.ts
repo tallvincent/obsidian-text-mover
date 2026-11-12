@@ -478,7 +478,25 @@ export default class TextMoverPlugin extends Plugin {
 			}
 		}
 
-		return await this.getFileByPath(path, newFileData);
+		let file: TFile | null = this.app.vault.getFileByPath(path);
+		if (file) {
+			return file;
+		}
+
+		// TODO: check if this will work on windows paths
+		const parts: string[] = path.split('/');
+		if (!parts) {
+			return null;
+		}
+
+		// remove the file from the path and recreate the rest
+		const folderPath: string = normalizePath(parts.slice(0, -1).join('/'));
+
+		// check folder exists
+		if (!this.app.vault.getFolderByPath(folderPath)) {
+			await this.app.vault.createFolder(folderPath);
+		}
+		return await this.app.vault.create(path, newFileData);
 	}
 
 	appHasDailyNotesPluginLoaded(): boolean {
@@ -499,31 +517,6 @@ export default class TextMoverPlugin extends Plugin {
 			folder: this.validateString(folder).trim(),
 			template: this.validateString(template).trim(),
 		};
-	}
-
-	async getFileByPath(
-		path: string,
-		fileContent: string = ''
-	): Promise<TFile | null> {
-		let file: TFile | null = this.app.vault.getFileByPath(path);
-		if (file) {
-			return file;
-		}
-
-		// TODO: check if this will work on windows paths
-		const parts: string[] = path.split('/');
-		if (!parts) {
-			return null;
-		}
-
-		// remove the file from the path and recreate the rest
-		const folderPath: string = normalizePath(parts.slice(0, -1).join('/'));
-
-		// check folder exists
-		if (!this.app.vault.getFolderByPath(folderPath)) {
-			await this.app.vault.createFolder(folderPath);
-		}
-		return await this.app.vault.create(path, fileContent);
 	}
 
 	getPathForNextDailyNote(
