@@ -269,10 +269,7 @@ export default class TextMoverPlugin extends Plugin {
 				}
 
 				const path: string = normalizePath(
-					settings.folder +
-						'/' +
-						selectedDate.value +
-						'.md'
+					settings.folder + '/' + selectedDate.value + '.md'
 				);
 				if (await this.addToDailyNote(editor, path, settings)) {
 					// remove the selection from the current note
@@ -470,8 +467,6 @@ export default class TextMoverPlugin extends Plugin {
 		path: string,
 		settings: DailyNoteSettings
 	): Promise<TFile | null> {
-		let file: TFile | null;
-
 		let newFileData: string = '';
 		// get the content of the settings template
 		if (settings.template) {
@@ -483,11 +478,7 @@ export default class TextMoverPlugin extends Plugin {
 			}
 		}
 
-		file = this.app.vault.getFileByPath(path);
-		if (!file) {
-			file = await this.app.vault.create(path, newFileData);
-		}
-		return file;
+		return await this.getFileByPath(path, newFileData);
 	}
 
 	appHasDailyNotesPluginLoaded(): boolean {
@@ -508,6 +499,31 @@ export default class TextMoverPlugin extends Plugin {
 			folder: this.validateString(folder).trim(),
 			template: this.validateString(template).trim(),
 		};
+	}
+
+	async getFileByPath(
+		path: string,
+		fileContent: string = ''
+	): Promise<TFile | null> {
+		let file: TFile | null = this.app.vault.getFileByPath(path);
+		if (file) {
+			return file;
+		}
+
+		// TODO: check if this will work on windows paths
+		const parts: string[] = path.split('/');
+		if (!parts) {
+			return null;
+		}
+
+		// remove the file from the path and recreate the rest
+		const folderPath: string = normalizePath(parts.slice(0, -1).join('/'));
+
+		// check folder exists
+		if (!this.app.vault.getFolderByPath(folderPath)) {
+			await this.app.vault.createFolder(folderPath);
+		}
+		return await this.app.vault.create(path, fileContent);
 	}
 
 	getPathForNextDailyNote(

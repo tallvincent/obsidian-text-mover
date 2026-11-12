@@ -385,6 +385,48 @@ describe('Text Mover commands', () => {
 			expect(editor.text).toBe('');
 		});
 
+		it('creates missing folders for the next daily note date format', async () => {
+			const { plugin, app, files, dailyNotes } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+			dailyNotes.instance.options.format = 'YYYY/MM/DD-MM-YYYY';
+
+			const createFolder = vi.spyOn(app.vault, 'createFolder');
+
+			const createFile = app.vault.create;
+			app.vault.create = async (path, content) => {
+				const parent = path.split('/').slice(0, -1).join('/');
+				if (parent && !app.vault.getFolderByPath(parent)) {
+					throw new Error(`Parent folder does not exist: ${parent}`);
+				}
+				return createFile(path, content);
+			};
+
+			const source = files.get('Source.md')!;
+			const editor = new TestEditor(
+				source.content,
+				{ line: 0, ch: 0 },
+				{ line: 0, ch: 4 }
+			);
+
+			await runEditorCommand(
+				plugin,
+				'move-text-to-next-daily-note',
+				editor,
+				source
+			);
+
+			expect(createFolder).toHaveBeenCalled();
+			expect(app.vault.getFolderByPath('Daily')).not.toBeNull();
+			expect(app.vault.getFolderByPath('Daily/2024')).not.toBeNull();
+			expect(app.vault.getFolderByPath('Daily/2024/01')).not.toBeNull();
+			expect(files.get('Daily/2024/01/02-01-2024.md')?.content).toBe(
+				'task'
+			);
+			expect(editor.text).toBe('');
+		});
+
 		it('does not move text when Daily Notes is disabled', async () => {
 			const { plugin, files, dailyNotes } = await createPlugin(
 				{},
@@ -710,8 +752,8 @@ describe('Text Mover commands', () => {
 			},
 			{
 				format: 'YYYY/MM/DD-MM-YYYY',
-				value: '2030/03/20-2030',
-				path: 'Daily/2030/03/20-2030.md',
+				value: '2030/03/20-03-2030',
+				path: 'Daily/2030/03/20-03-2030.md',
 			},
 		])(
 			'uses a selected date with format $format',
@@ -744,6 +786,53 @@ describe('Text Mover commands', () => {
 				expect(files.get(path)?.content).toBe('task');
 			}
 		);
+
+		it('creates missing folders for a nested daily-note date format', async () => {
+			const { plugin, app, files } = await createPlugin(
+				{},
+				{ 'Source.md': 'task' }
+			);
+			app.internalPlugins.getPluginById(
+				'daily-notes'
+			).instance.options.format = 'YYYY/MM/DD-MM-YYYY';
+
+			const createFolder = vi.spyOn(app.vault, 'createFolder');
+
+			const createFile = app.vault.create;
+			app.vault.create = async (path, content) => {
+				const parent = path.split('/').slice(0, -1).join('/');
+				if (parent && !app.vault.getFolderByPath(parent)) {
+					throw new Error(`Parent folder does not exist: ${parent}`);
+				}
+				return createFile(path, content);
+			};
+
+			const source = files.get('Source.md')!;
+			const editor = new TestEditor(
+				source.content,
+				{ line: 0, ch: 0 },
+				{ line: 0, ch: 4 }
+			);
+			mockObsidianState.modalResults.push({
+				display: '20th March 2030',
+				value: '2030/03/20-03-2030',
+			});
+
+			await runEditorCommand(
+				plugin,
+				'move-text-to-daily-note',
+				editor,
+				source
+			);
+
+			expect(createFolder).toHaveBeenCalled();
+			expect(app.vault.getFolderByPath('Daily')).not.toBeNull();
+			expect(app.vault.getFolderByPath('Daily/2030')).not.toBeNull();
+			expect(app.vault.getFolderByPath('Daily/2030/03')).not.toBeNull();
+			expect(files.get('Daily/2030/03/20-03-2030.md')?.content).toBe(
+				'task'
+			);
+		});
 	});
 
 	describe('custom commands', () => {

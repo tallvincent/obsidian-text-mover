@@ -8,12 +8,26 @@ export interface TestFile {
 
 export function createApp(initialFiles: Record<string, string> = {}) {
 	const files = new Map<string, TestFile>();
+	const folders = new Map<string, { path: string; name: string }>();
+	const addFolder = (path: string) => {
+		const folder = folders.get(path) ?? {
+			path,
+			name: path.split('/').at(-1)!,
+		};
+		folders.set(path, folder);
+		return folder;
+	};
+
 	for (const [path, content] of Object.entries(initialFiles)) {
 		files.set(path, {
 			path,
 			basename: path.split('/').at(-1)!.replace(/\.md$/, ''),
 			content,
 		});
+		const pathParts = path.split('/').slice(0, -1);
+		for (let index = 1; index <= pathParts.length; index++) {
+			addFolder(pathParts.slice(0, index).join('/'));
+		}
 	}
 
 	const dailyNotes = {
@@ -30,6 +44,15 @@ export function createApp(initialFiles: Record<string, string> = {}) {
 	const app = {
 		vault: {
 			getFileByPath: (path: string) => files.get(path) ?? null,
+			getFolderByPath: (path: string) => folders.get(path) ?? null,
+			createFolder: async (path: string) => {
+				const pathParts = path.split('/');
+				const folder = addFolder(path);
+				for (let index = 1; index < pathParts.length; index++) {
+					addFolder(pathParts.slice(0, index).join('/'));
+				}
+				return folder;
+			},
 			getFiles: () => [...files.values()],
 			getMarkdownFiles: () =>
 				[...files.values()].filter(({ path }) =>
