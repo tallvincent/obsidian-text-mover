@@ -29,6 +29,8 @@
               eslint
               prettierd
 
+              rumdl
+
               # Nix development
               nil
               statix

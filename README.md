@@ -1,49 +1,72 @@
 # Obsidian Text Mover
 
-This is a plugin for Obsidian (https://obsidian.md) that lets you move text from one place to another place.
+This is a plugin for Obsidian (<https://obsidian.md>) that lets you move text
+from one place to another place.
 Pretty simple stuff.
 
 ## Features
 
 - Move text to another heading in the current note.
-- Move text to another Markdown note.
-- Move text to a daily note, either by choosing a date or by sending it to the next day's note.
-- Create custom commands for frequently used destinations, such as a specific note or tomorrow's daily note. Custom commands can target a heading and insert before or after its contents.
+- Move text to another note.
+- Move text to a daily note, either by choosing a date or by sending it to the
+next day's note.
+- Create custom commands for frequently used destinations, such as a specific
+note or tomorrow's daily note. Custom commands can target a heading and insert
+before or after its contents.
 - Optionally choose whether text is appended to or prepended within a heading.
 
-Text Mover uses Obsidian's built-in Daily Notes settings for the date format, folder, and template. The Daily Notes core plugin must be enabled to use daily-note commands.
+Text Mover uses Obsidian's built-in Daily Notes settings for the date format,
+folder, and template. The Daily Notes core plugin must be enabled to use
+daily-note commands.
 
 ## How to use
 
-1. Open a note and select the text you want to move. If nothing is selected, Text Mover uses the current line. Multiple selections are not supported.
+1. Open a note and select the text you want to move. If nothing is selected,
+Text Mover uses the current line. Multiple selections are not supported.
 2. Open the command palette and search for a **Text Mover** command:
-   - **Move text within current document** — choose a different heading in the current note.
-   - **Move text to another document** — choose a Markdown note; the text is added at the end.
-   - **Move text to daily note** — choose a date, with suggestions for today, tomorrow, and the coming days. You can also type a day of the month, optionally followed by a month name.
+   - **Move text within current document** — choose a different heading
+   in the current note.
+   - **Move text to another document** — choose a note. If it has headings,
+   choose a destination heading; otherwise, the text is added at the
+   end of the note.
+   - **Move text to daily note** — choose a date, with suggestions for today,
+   tomorrow, and the coming days. You can also type a day of the month,
+   optionally followed by a month name.
    - **Move text to next daily note** — send the text to tomorrow's daily note.
    - Any custom commands you have created.
-3. For heading destinations, choose the matching heading. By default, text is appended to its section. To choose between inserting at the beginning or end, enable **Append and prepend** in the plugin settings.
+3. For heading destinations, choose the matching heading. By default, text is
+appended to its section. To choose between inserting at the beginning or end,
+enable **Append and prepend** in the plugin settings.
 
-When a daily note does not exist yet, Text Mover creates it using the folder, date format, and template configured in Obsidian's Daily Notes settings. If the destination note has headings, you can choose a heading; otherwise, the text is added to the note.
+When a daily note does not exist yet, Text Mover creates it using the folder,
+date format, and template configured in Obsidian's Daily Notes settings. If the
+destination note has headings, you can choose a heading; otherwise, the text is
+added to the note.
 
 ### Create a custom command
 
 1. Open **Settings → Community plugins → Text Mover**.
 2. Under custom commands, select **Add**.
-3. Give the command a unique name, then choose a specific file or tomorrow's daily note.
-4. For a specific file, select an optional heading. Choose whether the text should be appended or prepended, then submit.
+3. Give the command a unique name, then choose a specific file or tomorrow's
+daily note.
+4. For a specific file, select an optional heading. Choose whether the text
+should be appended or prepended, then submit.
 
-The new command will appear in the command palette. You can remove it from the same settings page.
+The new command will appear in the command palette.
+You can remove it from the same settings page.
 
 ## Install manually
 
-Download `main.js` and `manifest.json` from a release and place them in your vault at:
+Download `main.js` and `manifest.json` from a release and place them in your
+vault at:
 
 ```text
 <Vault>/.obsidian/plugins/text-mover/
 ```
 
-Restart or reload Obsidian, then enable **Text Mover** under **Settings → Community plugins**. For local development, build the plugin as described below and copy the generated files into this folder.
+Restart or reload Obsidian, then enable **Text Mover** under
+**Settings → Community plugins**. For local development, build the plugin as
+described below and copy the generated files into this folder.
 
 ## Contributing
 
@@ -51,7 +74,8 @@ Contributions, bug reports, and feature suggestions are welcome. For code change
 
 1. Fork the repository and create a branch for your change.
 2. Install dependencies with `npm install` (Node.js 18 or newer is recommended).
-3. Make your changes in `src/`. Run `npm run dev` to rebuild `main.js` automatically while developing.
+3. Make your changes in `src/`. Run `npm run dev` to rebuild `main.js`
+automatically while developing.
 4. Run the checks before opening a pull request:
 
    ```bash
@@ -60,9 +84,11 @@ Contributions, bug reports, and feature suggestions are welcome. For code change
    npm run build
    ```
 
-5. Test the behavior in Obsidian where practical, then open a pull request describing the change and any relevant testing.
+5. Test the behavior in Obsidian where practical, then open a pull request
+describing the change and any relevant testing.
 
-`main.js` is generated by the build and should not be committed. Keep changes focused, and add or update tests when changing behavior.
+`main.js` is generated by the build and should not be committed. Keep changes
+focused, and add or update tests when changing behavior.
 
 ## Development commands
 
@@ -77,9 +103,14 @@ Contributions, bug reports, and feature suggestions are welcome. For code change
 
 ## Releasing
 
-1. Update the version in `manifest.json` and the minimum supported Obsidian version if needed.
+1. Update the version in `manifest.json` and the minimum supported Obsidian
+version if needed.
 2. Add the matching version-to-minimum-app-version entry to `versions.json`.
 3. Run `npm run build`.
-4. Create a GitHub release with a tag exactly matching the version in `manifest.json` (without a `v` prefix), and attach `manifest.json` and the generated `main.js`.
+4. Create a GitHub release with a tag exactly matching the version in
+`manifest.json` (without a `v` prefix), and attach `manifest.json` and the
+generated `main.js`.
 
-The `npm version patch`, `npm version minor`, or `npm version major` commands can be used to bump the version; this repository's version script updates the manifest and `versions.json`.
+The `npm version patch`, `npm version minor`, or `npm version major` commands
+can be used to bump the version; this repository's version script updates the
+manifest and `versions.json`.
