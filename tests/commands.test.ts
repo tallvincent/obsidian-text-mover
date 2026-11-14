@@ -248,6 +248,35 @@ describe('Text Mover commands', () => {
 			expect(editor.text).toBe('alpha  beta');
 		});
 
+		it('moves multiple full lines without leaving a blank line in the source', async () => {
+			const { plugin, files } = await createPlugin(
+				{},
+				{
+					'Source.md':
+						'keep above\nfirst line\nsecond line\nkeep below',
+					'Target.md': '',
+				}
+			);
+			const source = files.get('Source.md')!;
+			const target = files.get('Target.md')!;
+			const editor = new TestEditor(
+				source.content,
+				{ line: 1, ch: 0 },
+				{ line: 2, ch: 'second line'.length }
+			);
+			mockObsidianState.modalResults.push(target);
+
+			await runEditorCommand(
+				plugin,
+				'move-text-to-another-document',
+				editor,
+				source
+			);
+
+			expect(target.content).toBe('first line\nsecond line');
+			expect(editor.text).toBe('keep above\nkeep below');
+		});
+
 		it('leaves the source unchanged when the file picker is dismissed', async () => {
 			const { plugin, files } = await createPlugin(
 				{},

@@ -9,23 +9,17 @@ export function removeSelectionFromEditor(editor: Editor) {
 
 	// Order positions by line and then character; character offsets alone do not
 	// order selections that span lines (especially when they end on an empty line).
-	if (
-		from.line > to.line ||
-		(from.line === to.line && from.ch > to.ch)
-	) {
+	if (from.line > to.line || (from.line === to.line && from.ch > to.ch)) {
 		[from, to] = [to, from];
 	}
 
-	const lineText: string = editor.getLine(from.line);
-	const selectionIsEntireLine: boolean =
-		from.line === to.line &&
-		from.ch === 0 &&
-		to.ch === lineText.length &&
-		editor.getSelection() === lineText;
+	const endLineText: string = editor.getLine(to.line);
+	const selectionIsEntireLines: boolean =
+		from.ch === 0 && to.ch === endLineText.length;
 
-	if (selectionIsEntireLine && from.line < editor.lastLine()) {
+	if (selectionIsEntireLines && from.line < editor.lastLine()) {
 		// Remove the following line break as well so the next line takes its place.
-		editor.replaceRange('', from, { ch: 0, line: from.line + 1 });
+		editor.replaceRange('', from, { ch: 0, line: to.line + 1 });
 	} else {
 		// Multi-line selections are removed exactly as selected, including a
 		// trailing empty line at the end of the document.
